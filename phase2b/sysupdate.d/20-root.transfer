@@ -1,0 +1,11 @@
+[Source]
+Type=url-file
+Path=http://10.0.2.2:8088/
+MatchPattern=astromesh-os-phase0_@v.root-x86-64.raw
+
+[Target]
+Type=partition
+MatchPattern=root-@v
+Type=root
+InstancesMax=2
+ReadOnly=yes

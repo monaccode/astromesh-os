@@ -1,0 +1,11 @@
+[Source]
+Type=url-file
+Path=http://10.0.2.2:8088/
+MatchPattern=astromesh-os-phase0_@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=astromesh-os-phase0_@v.efi
+InstancesMax=2
