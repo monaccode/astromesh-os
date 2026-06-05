@@ -51,10 +51,15 @@ wait_health 180 || {
     echo "----- console tail -----"; tail -n 200 qemu-console.log || true
     exit 1
 }
+# The version-marker service logs shortly AFTER health (it runs after multi-user),
+# so poll for it instead of grepping once (avoids a race).
+for _ in $(seq 1 20); do grep -q "ASTROMESH_BUILD=1" qemu-console.log && break; sleep 2; done
 if grep -q "ASTROMESH_BUILD=1" qemu-console.log; then
     echo "[update] PASS: booted v1"
 else
-    echo "[update] FAIL: v1 marker not found"; grep -i ASTROMESH_BUILD qemu-console.log || true; exit 1
+    echo "[update] FAIL: v1 marker not found"
+    echo "----- console tail -----"; tail -n 120 qemu-console.log || true
+    exit 1
 fi
 
 echo "[update] waiting for auto-update + reboot into v2 (up to ${TIMEOUT}s)"
