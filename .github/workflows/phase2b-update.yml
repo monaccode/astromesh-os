@@ -65,7 +65,9 @@ jobs:
         env:
           PHASE0_MODE: stub
         run: mkosi --image-version=1 build
-      - run: mkdir -p out && cp mkosi.output/*.raw out/v1.raw
+      - name: List v1 artifacts
+        run: ls -la mkosi.output
+      - run: mkdir -p out && cp mkosi.output/astromesh-os-phase0_1.raw out/v1.raw
       - name: Build v2 (split artifacts)
         env:
           PHASE0_MODE: stub
@@ -73,8 +75,14 @@ jobs:
       - name: Stage v2 split artifacts for sysupdate
         run: |
           mkdir -p update-served
-          cp mkosi.output/astromesh-os-phase0_2* update-served/ 2>/dev/null || cp mkosi.output/*_2* update-served/
-          ls -la update-served
+          # Serve the split artifacts (root, verity) and the UKI — NOT the full _2.raw.
+          for f in mkosi.output/astromesh-os-phase0_2.root-x86-64.raw \
+                   mkosi.output/astromesh-os-phase0_2.root-x86-64-verity.raw \
+                   mkosi.output/astromesh-os-phase0_2.efi; do
+            [ -f "$f" ] && cp "$f" update-served/ || echo "MISSING: $f"
+          done
+          echo "=== full mkosi.output ==="; ls -la mkosi.output
+          echo "=== served ==="; ls -la update-served
       - uses: actions/upload-artifact@v4
         with:
           name: phase2b-v1
