@@ -78,12 +78,16 @@ jobs:
           # Serve the root + verity split images.
           cp -L mkosi.output/astromesh-os-phase0_2.root-x86-64.raw update-served/
           cp -L mkosi.output/astromesh-os-phase0_2.root-x86-64-verity.raw update-served/
-          # mkosi emits no standalone UKI, only the ESP partition image; extract the
-          # UKI out of it (FAT) with mtools and serve it as a standalone .efi so the
-          # regular-file UKI transfer can drop it into /EFI/Linux.
-          echo "=== v2 ESP /EFI/Linux ==="
-          mdir -i mkosi.output/astromesh-os-phase0_2.esp.raw ::/EFI/Linux || true
-          mcopy -i mkosi.output/astromesh-os-phase0_2.esp.raw "::/EFI/Linux/*" update-served/ || true
+          # mkosi emits no standalone UKI, only the ESP partition image; locate and
+          # extract the UKI out of it (FAT) with mtools and serve it as a standalone
+          # .efi so the regular-file UKI transfer can drop it into /EFI/Linux.
+          ESP=mkosi.output/astromesh-os-phase0_2.esp.raw
+          echo "=== v2 ESP full tree ==="
+          mdir -i "$ESP" -b -/ :: || true
+          for uki in $(mdir -i "$ESP" -b -/ :: 2>/dev/null | grep -iE '\.efi$' | grep -iE 'Linux|astromesh'); do
+            echo "extracting UKI: $uki"
+            mcopy -i "$ESP" "::${uki#::}" "update-served/$(basename "$uki")" 2>/dev/null || true
+          done
           echo "=== served ==="; ls -la update-served
       - uses: actions/upload-artifact@v4
         with:
@@ -113,8 +117,12 @@ jobs:
         run: sudo chmod 666 /dev/kvm 2>/dev/null || echo "no kvm; TCG fallback"
       - name: Serve v2 artifacts over HTTP (10.0.2.2:8088 from the guest)
         run: |
-          cd update-served && nohup python3 -m http.server 8088 >/tmp/http.log 2>&1 &
-          sleep 2 && curl -sf http://127.0.0.1:8088/ | head -5
+          cd update-served
+          # systemd-sysupdate enumerates versions from a SHA256SUMS manifest at the source.
+          sha256sum * > SHA256SUMS
+          echo "=== SHA256SUMS ==="; cat SHA256SUMS
+          nohup python3 -m http.server 8088 >/tmp/http.log 2>&1 &
+          sleep 2 && curl -sf http://127.0.0.1:8088/SHA256SUMS | head
       - name: Convert v1 to qcow2
         run: qemu-img convert -O qcow2 image/v1.raw v1.qcow2
       - name: Run A/B update gate
