@@ -1,0 +1,13 @@
+[Unit]
+Description=Astromesh OS build version marker
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/version-marker.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

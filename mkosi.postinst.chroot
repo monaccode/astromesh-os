@@ -121,6 +121,13 @@ systemctl set-default astromesh-os.target
 #    shadows the dirs baked into the read-only root).
 install -m 0644 "${SRC}/phase2/tmpfiles/astromesh-var.conf" /usr/lib/tmpfiles.d/astromesh-var.conf
 install -d /usr/lib/astromesh-os
+
+# Fase 2b: bake the image version and a console version marker for the A/B test.
+echo "${IMAGE_VERSION:-1}" > /usr/lib/astromesh-os/build-version
+install -m 0755 "${SRC}/phase2b/version-marker.sh" /usr/lib/astromesh-os/version-marker.sh
+install -m 0644 "${SRC}/phase2b/version-marker.service" /etc/systemd/system/version-marker.service
+systemctl enable version-marker.service
+
 install -m 0755 "${SRC}/phase2/immutability-check.sh" /usr/lib/astromesh-os/immutability-check.sh
 install -m 0644 "${SRC}/phase2/immutability-check.service" /etc/systemd/system/immutability-check.service
 systemctl enable immutability-check.service
