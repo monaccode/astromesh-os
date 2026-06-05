@@ -1,0 +1,13 @@
+[Unit]
+Description=Astromesh OS A/B auto-update
+After=astromeshd.service network-online.target version-marker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/autoupdate.sh
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
