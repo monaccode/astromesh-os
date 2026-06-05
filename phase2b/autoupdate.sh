@@ -5,7 +5,13 @@
 # (prevents a reboot loop once booted into v2).
 set -uo pipefail
 
-out="$(systemd-sysupdate update 2>&1)"; rc=$?
+# systemd ships the tool under /usr/lib/systemd; it is not always on PATH.
+SYSUPDATE=/usr/lib/systemd/systemd-sysupdate
+[ -x "${SYSUPDATE}" ] || SYSUPDATE=systemd-sysupdate
+
+echo "[autoupdate] using ${SYSUPDATE}"
+echo "[autoupdate] available versions:"; "${SYSUPDATE}" list 2>&1 || true
+out="$("${SYSUPDATE}" update 2>&1)"; rc=$?
 echo "[autoupdate] (rc=${rc}) ${out}"
 
 if [ "${rc}" -eq 0 ] \
