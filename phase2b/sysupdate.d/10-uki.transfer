@@ -1,3 +1,6 @@
+[Transfer]
+Verify=no
+
 [Source]
 Type=url-file
 Path=http://10.0.2.2:8088/
