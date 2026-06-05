@@ -5,7 +5,8 @@ MatchPattern=astromesh-os-phase0_@v.root-x86-64.raw
 
 [Target]
 Type=partition
+Path=auto
 MatchPattern=root-@v
-Type=root
+MatchPartitionType=root
 InstancesMax=2
 ReadOnly=yes

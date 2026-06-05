@@ -75,15 +75,15 @@ jobs:
       - name: Stage v2 split artifacts for sysupdate
         run: |
           mkdir -p update-served
-          # Serve every v2 split artifact except the giant full disk image, so sysupdate
-          # finds the root, verity, ESP and UKI regardless of exact naming.
-          for f in mkosi.output/astromesh-os-phase0_2.*; do
-            case "$f" in
-              *.raw) [ "$f" = "mkosi.output/astromesh-os-phase0_2.raw" ] && continue ;;
-            esac
-            cp -L "$f" update-served/ 2>/dev/null || true
-          done
-          echo "=== full mkosi.output ==="; ls -la mkosi.output
+          # Serve the root + verity split images.
+          cp -L mkosi.output/astromesh-os-phase0_2.root-x86-64.raw update-served/
+          cp -L mkosi.output/astromesh-os-phase0_2.root-x86-64-verity.raw update-served/
+          # mkosi emits no standalone UKI, only the ESP partition image; extract the
+          # UKI out of it (FAT) with mtools and serve it as a standalone .efi so the
+          # regular-file UKI transfer can drop it into /EFI/Linux.
+          echo "=== v2 ESP /EFI/Linux ==="
+          mdir -i mkosi.output/astromesh-os-phase0_2.esp.raw ::/EFI/Linux || true
+          mcopy -i mkosi.output/astromesh-os-phase0_2.esp.raw "::/EFI/Linux/*" update-served/ || true
           echo "=== served ==="; ls -la update-served
       - uses: actions/upload-artifact@v4
         with:

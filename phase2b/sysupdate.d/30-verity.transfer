@@ -5,7 +5,8 @@ MatchPattern=astromesh-os-phase0_@v.root-x86-64-verity.raw
 
 [Target]
 Type=partition
+Path=auto
 MatchPattern=root-verity-@v
-Type=root-verity
+MatchPartitionType=root-verity
 InstancesMax=2
 ReadOnly=yes
