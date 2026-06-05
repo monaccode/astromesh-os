@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Runs INSIDE the image chroot (the .chroot suffix selects in-image execution).
+# Reads build inputs (the .deb, stub payload, agent templates) from the mkosi
+# source tree, which mkosi bind-mounts and exposes via $SRCDIR.
+set -euo pipefail
+
+MODE="${PHASE0_MODE:-stub}"
+ETC="/etc/astromesh"
+SRC="${SRCDIR:-/work/src}"
+echo "[postinst] PHASE0_MODE=${MODE}; SRC=${SRC}"
+
+# 1. Install the astromesh-node .deb (CI leaves it under ./dist of the source tree).
+DEB=$(ls "${SRC}"/dist/astromesh-node_*_amd64.deb 2>/dev/null | head -1 || true)
+if [ -z "${DEB}" ]; then
+    echo "[postinst] ERROR: astromesh-node .deb not found under ${SRC}/dist"
+    exit 1
+fi
+echo "[postinst] Installing ${DEB}"
+# The minimal image ships dpkg but not apt; the .deb's deps (python3, python3-venv)
+# are already installed via mkosi Packages=, so dpkg -i resolves cleanly.
+# Neutralize systemctl during the .deb maintainer scripts: there is no running
+# systemd in the build chroot, so `systemctl daemon-reload` would hit the bus and
+# fail. dpkg runs maintainer scripts with PATH=/usr/sbin:/usr/bin:/sbin:/bin, so we
+# replace the real binary directly, then restore it. Our own (offline, filesystem-
+# only) `systemctl enable` calls run afterward against the restored binary.
+SYSCTL=/usr/bin/systemctl
+if [ -e "${SYSCTL}" ]; then mv "${SYSCTL}" "${SYSCTL}.real"; fi
+printf '#!/bin/sh\nexit 0\n' > "${SYSCTL}"
+chmod +x "${SYSCTL}"
+dpkg -i "${DEB}"
+if [ -e "${SYSCTL}.real" ]; then mv -f "${SYSCTL}.real" "${SYSCTL}"; fi
+
+# 1b. The .deb's venv was created at a build-time staging path and relocated to
+#     /opt/astromesh/venv, so its console-script shebangs point at a path that does
+#     not exist in the image (astromeshd then fails with 203/EXEC). Rewrite the
+#     python shebangs to the installed venv interpreter.
+echo "[postinst] venv bin before fix:"; ls -la /opt/astromesh/venv/bin 2>&1 | head -20 || true
+echo "[postinst] astromeshd shebang:"; head -1 /opt/astromesh/venv/bin/astromeshd 2>&1 || true
+if [ -d /opt/astromesh/venv/bin ]; then
+    for s in /opt/astromesh/venv/bin/*; do
+        [ -f "${s}" ] || continue
+        first=$(head -1 "${s}" 2>/dev/null || true)
+        case "${first}" in
+            "#!"*python*) sed -i "1s|^#!.*|#!/opt/astromesh/venv/bin/python3|" "${s}" ;;
+        esac
+    done
+fi
+echo "[postinst] astromeshd shebang after fix:"; head -1 /opt/astromesh/venv/bin/astromeshd 2>&1 || true
+
+# 2. Install the smoke agent variant for this mode into the auto-loaded agents dir.
+#    The runtime reads model.primary.endpoint (NOT providers.yaml), so the endpoint
+#    lives in the agent YAML itself.
+if [ "${MODE}" = "real" ]; then
+    install -m 0640 "${SRC}/phase0/agents/phase0-smoke.real.yaml" "${ETC}/agents/phase0-smoke.agent.yaml"
+else
+    install -m 0640 "${SRC}/phase0/agents/phase0-smoke.stub.yaml" "${ETC}/agents/phase0-smoke.agent.yaml"
+fi
+chown root:astromesh "${ETC}/agents/phase0-smoke.agent.yaml"
+
+# 3. Provider API key for astromeshd.service (EnvironmentFile=-/etc/astromesh/.env).
+#    Dummy in stub mode; CI passes the real OPENAI_API_KEY in real mode.
+echo "OPENAI_API_KEY=${OPENAI_API_KEY:-sk-phase0-stub-dummy}" > "${ETC}/.env"
+chmod 0640 "${ETC}/.env"
+chown root:astromesh "${ETC}/.env"
+
+# 4. Stub OpenAI server + service, only in stub mode. fastapi/uvicorn come from the
+#    image's apt packages (python3-fastapi/python3-uvicorn) — mkosi runs this script
+#    without network, so we cannot pip-install here.
+if [ "${MODE}" = "stub" ]; then
+    echo "[postinst] Installing Phase 0 stub"
+    install -d /opt/phase0-stub
+    install -m 0644 "${SRC}/tests/stub-openai/stub_server.py" /opt/phase0-stub/stub_server.py
+    install -m 0644 "${SRC}/tests/stub-openai/phase0-stub.service" /etc/systemd/system/phase0-stub.service
+    systemctl enable phase0-stub.service
+fi
+
+# 5. Bring up the NIC with DHCP so the host can reach the API (QEMU user-net
+#    assigns 10.0.2.15 via DHCP; without this the hostfwd never connects).
+install -d /etc/systemd/network
+cat > /etc/systemd/network/20-wired.network <<'NET'
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=yes
+NET
+systemctl enable systemd-networkd.service
+
+# 6. Drop the systemd watchdog for astromeshd. The unit ships WatchdogSec=30 but the
+#    daemon only sends READY=1 (no periodic WATCHDOG=1), so systemd kills it every
+#    30s. Phase 0 only needs it to stay up and answer one query.
+install -d /etc/systemd/system/astromeshd.service.d
+cat > /etc/systemd/system/astromeshd.service.d/10-no-watchdog.conf <<'WD'
+[Service]
+WatchdogSec=0
+WD
+
+# 7. Ensure astromeshd is enabled (the .deb already does this; idempotent).
+systemctl enable astromeshd.service
+
+echo "[postinst] done (mode=${MODE})"

@@ -10,6 +10,15 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-05-phase0-validation-design.md`
 
+> **Correcciones post-review (2026-06-05).** Un code-review adversarial sobre la primera implementación encontró bugs de nivel-plan, verificados contra el código del runtime. Las tareas de abajo reflejan el diseño ya corregido; los deltas clave:
+> - **C1 — `mkosi.postinst` corre en el host.** El script se llama **`mkosi.postinst.chroot`** (sufijo `.chroot` → corre dentro de la imagen). Lee los inputs de build (`.deb`, stub, agentes) desde el árbol fuente vía **`$SRCDIR`**, no desde `mkosi.extra/`.
+> - **C3 — `providers.yaml` es inerte.** El runtime arma el provider desde `spec.model.primary.endpoint` del agente (`engine.py:184`), no de `providers.yaml`. Se eliminan `providers.stub.yaml`/`providers.real.yaml`; el endpoint vive en **dos variantes de agente** (`phase0/agents/phase0-smoke.{stub,real}.yaml`) que el postinst selecciona por `PHASE0_MODE`.
+> - **C2 — el body del run es `{"query": "..."}`** (campo `query`, confirmado en `agents.py:38`), no `{"input": ...}`.
+> - **M1 + venv — Debian trixie trae Python 3.13.** Se quita `libpython3.12` de los paquetes, y el `.deb` se construye en un contenedor **`debian:trixie`** para que el venv empaquetado matchee el Python de la imagen.
+> - Se elimina el paso "Stage payload into mkosi.extra" de los workflows (ya no hace falta con `$SRCDIR`).
+>
+> **Riesgos mkosi residuales (a confirmar en Task 10 / CI):** disponibilidad exacta de `$SRCDIR` dentro de scripts `.chroot`; build de extensiones nativas del runtime dentro del contenedor trixie; extensión real de salida de mkosi (`*.raw`).
+
 **Restricción de entorno:** el host de desarrollo es Windows; mkosi/QEMU son Linux-only. La verificación autoritativa corre en **CI Linux**. Localmente se itera vía **contenedor Docker privilegiado** (hay Docker; no hay distro WSL general). Las verificaciones host-runnable de este plan (pytest del stub, `bash -n`, `python -c yaml.safe_load`) se ejecutan con el Git-Bash/uv del host.
 
 ---

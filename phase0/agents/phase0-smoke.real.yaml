@@ -1,0 +1,25 @@
+apiVersion: astromesh/v1
+kind: Agent
+metadata:
+  name: phase0-smoke
+  version: "0.0.1"
+  namespace: system
+spec:
+  identity:
+    display_name: "Phase 0 Smoke Agent"
+    description: "Minimal agent to validate boot-to-agent over an openai_compat provider (real OpenAI endpoint)"
+  model:
+    primary:
+      provider: openai
+      endpoint: "https://api.openai.com/v1"
+      model: "gpt-4o-mini"
+      api_key_env: OPENAI_API_KEY
+      parameters:
+        temperature: 0.0
+        max_tokens: 64
+  prompts:
+    system: "You are a smoke-test agent. Answer concisely."
+  orchestration:
+    pattern: react
+    max_iterations: 2
+    timeout: 30

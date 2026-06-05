@@ -1,0 +1,16 @@
+[Unit]
+Description=Phase 0 OpenAI-compatible stub
+Documentation=https://github.com/monaccode/astromesh-os
+Before=astromeshd.service
+Wants=network.target
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m uvicorn stub_server:app --host 127.0.0.1 --port 8081
+WorkingDirectory=/opt/phase0-stub
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

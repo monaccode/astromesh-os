@@ -169,12 +169,15 @@ El postinst (o un drop-in) selecciona la variante según un build-arg `PHASE0_MO
 
 ---
 
-## 8. Definición de "hecho" (Fase 0)
+## 8. Definición de "hecho" (Fase 0) — ✅ CUMPLIDA (2026-06-05)
 
-- [ ] `phase0-ci.yml` verde: imagen booteable + `/v1/health` 200 + `phase0-smoke` responde (vía stub).
-- [ ] `phase0-nightly.yml` verde al menos una vez: misma cadena contra OpenAI real.
-- [ ] `runtime.pin` fija un SHA exacto y CI lo resuelve.
-- [ ] Primer boot confirmado: `astromeshd` queda `active` sin postgres/redis.
-- [ ] Documentado cómo correr el build localmente en WSL2.
+- [x] `phase0-ci.yml` verde: imagen booteable + `/v1/health` 200 + `phase0-smoke` responde (vía stub). *(run 27027974832; agente devolvió `{"answer":"pong"}` vía provider `openai_compat`→stub `gpt-4o-mini`).*
+- [ ] `phase0-nightly.yml` verde al menos una vez: misma cadena contra OpenAI real. *(Pendiente: requiere el secret `OPENAI_API_KEY`; diferido por decisión del usuario — el workflow existe y está listo).*
+- [x] `runtime.pin` fija un SHA exacto y CI lo resuelve. *(`ASTROMESH_REF=d83e36a…`; build del `.deb` `astromesh-node_0.1.1`).*
+- [x] Primer boot confirmado: `astromeshd` queda `active` y sirve `:8000` sin postgres/redis. *(arranca en "dev mode", carga 7 agentes, `Notified systemd: READY`).*
+- [x] Documentado cómo correr el build localmente. *(README: build vía contenedor Docker — no hay distro WSL general en el host).*
+
+### Aprendizajes de la primera puesta en verde de CI (20 iteraciones)
+El gate hermético requirió resolver, en orden: shell `bash` en contenedor; resolver el asset `.deb` de nfpm por API; bit `+x` de scripts en git (Windows); `Bootable` en `[Content]`; **build del `.deb` y de la imagen en contenedor `debian:trixie` privilegiado** (la mkosi del apt de Ubuntu es muy vieja para trixie — nombres de paquetes de initrd obsoletos, ignora `ToolsTree`); imagen mínima sin `apt`→`dpkg -i`; sin `passwd`→agregarlo; `systemctl` del `.deb` postinst neutralizado en el chroot de build; stub vía paquetes apt (`python3-fastapi`/`uvicorn`) por falta de red en postinst; kernel `linux-image-cloud-amd64`; `OutputDirectory` explícito; **boot UEFI con OVMF (pflash)** + `chmod 666 /dev/kvm`; **shebangs del venv reubicado reescritos** (203/EXEC); **DHCP en la NIC** + **drop-in `WatchdogSec=0`** (el daemon no manda `WATCHDOG=1`). Estos son insumos directos para Fase 1 (imagen mínima) y para reportar fricciones de empaquetado al runtime.
 
 Cumplido el gate → siguiente ciclo: brainstorm→spec→plan de **Fase 1** (imagen mínima + boot-to-agent + gate ≤ 500 MB + publicación ORAS).

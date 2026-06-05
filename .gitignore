@@ -1,0 +1,19 @@
+# Build artifacts
+*.qcow2
+*.raw
+*.deb
+*.img
+mkosi.output/
+mkosi.cache/
+mkosi.builddir/
+.mkosi-*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Local secrets
+*.env
+!*.env.example
