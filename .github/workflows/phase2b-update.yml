@@ -1,0 +1,111 @@
+name: phase2b-update
+
+on:
+  push:
+    branches: [feat/phase2b]
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-24.04
+    container: debian:trixie
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - id: pin
+        run: |
+          . runtime.pin
+          echo "ref=${ASTROMESH_REF}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: monaccode/astromesh
+          ref: ${{ steps.pin.outputs.ref }}
+          path: _runtime
+      - name: Install build deps
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-venv python3-pip git curl ca-certificates build-essential
+      - name: Install nfpm
+        run: |
+          url=$(curl -sfL https://api.github.com/repos/goreleaser/nfpm/releases/latest \
+            | python3 -c "import sys,json; a=json.load(sys.stdin)['assets']; print(next(x['browser_download_url'] for x in a if x['name'].endswith('_amd64.deb')))")
+          curl -sfL "$url" -o nfpm.deb
+          apt-get install -y ./nfpm.deb
+      - name: Build .deb
+        working-directory: _runtime/astromesh-node
+        run: bash packaging/build-deb.sh
+      - run: mkdir -p dist && cp _runtime/astromesh-node/dist/astromesh-node_*_amd64.deb dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astromesh-deb
+          path: dist/*.deb
+
+  build-images:
+    needs: build-deb
+    runs-on: ubuntu-24.04
+    container:
+      image: debian:trixie
+      options: --privileged
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: astromesh-deb
+          path: dist
+      - name: Install mkosi + image tools
+        run: |
+          apt-get update
+          apt-get install -y mkosi systemd-ukify systemd-boot mtools dosfstools ca-certificates
+      - name: Build v1 (full image)
+        env:
+          PHASE0_MODE: stub
+        run: mkosi --image-version=1 build
+      - run: mkdir -p out && cp mkosi.output/*.raw out/v1.raw
+      - name: Build v2 (split artifacts)
+        env:
+          PHASE0_MODE: stub
+        run: mkosi --image-version=2 --force build
+      - name: Stage v2 split artifacts for sysupdate
+        run: |
+          mkdir -p update-served
+          cp mkosi.output/astromesh-os-phase0_2* update-served/ 2>/dev/null || cp mkosi.output/*_2* update-served/
+          ls -la update-served
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase2b-v1
+          path: out/v1.raw
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase2b-v2-served
+          path: update-served/*
+
+  update-gate:
+    needs: build-images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase2b-v1
+          path: image
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase2b-v2-served
+          path: update-served
+      - name: Install QEMU + OVMF
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 qemu-utils ovmf curl
+      - name: Enable KVM access
+        run: sudo chmod 666 /dev/kvm 2>/dev/null || echo "no kvm; TCG fallback"
+      - name: Serve v2 artifacts over HTTP (10.0.2.2:8088 from the guest)
+        run: |
+          cd update-served && nohup python3 -m http.server 8088 >/tmp/http.log 2>&1 &
+          sleep 2 && curl -sf http://127.0.0.1:8088/ | head -5
+      - name: Convert v1 to qcow2
+        run: qemu-img convert -O qcow2 image/v1.raw v1.qcow2
+      - name: Run A/B update gate
+        run: bash tests/boot/update-and-assert.sh v1.qcow2
