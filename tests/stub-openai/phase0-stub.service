@@ -7,7 +7,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 -m uvicorn stub_server:app --host 127.0.0.1 --port 8081
+ExecStart=/opt/astromesh/venv/bin/python -m uvicorn stub_server:app --host 127.0.0.1 --port 8081
 WorkingDirectory=/opt/phase0-stub
 Restart=on-failure
 RestartSec=2

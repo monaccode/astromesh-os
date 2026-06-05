@@ -1,0 +1,105 @@
+name: phase1-publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-24.04
+    container: debian:trixie
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - id: pin
+        run: |
+          . runtime.pin
+          echo "ref=${ASTROMESH_REF}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: monaccode/astromesh
+          ref: ${{ steps.pin.outputs.ref }}
+          path: _runtime
+      - name: Install build deps (inside trixie)
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-venv python3-pip git curl ca-certificates build-essential
+      - name: Install nfpm
+        run: |
+          url=$(curl -sfL https://api.github.com/repos/goreleaser/nfpm/releases/latest \
+            | python3 -c "import sys,json; a=json.load(sys.stdin)['assets']; print(next(x['browser_download_url'] for x in a if x['name'].endswith('_amd64.deb')))")
+          curl -sfL "$url" -o nfpm.deb
+          apt-get install -y ./nfpm.deb
+      - name: Build .deb
+        working-directory: _runtime/astromesh-node
+        run: bash packaging/build-deb.sh
+      - run: mkdir -p dist && cp _runtime/astromesh-node/dist/astromesh-node_*_amd64.deb dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astromesh-deb
+          path: dist/*.deb
+
+  build-image:
+    needs: build-deb
+    runs-on: ubuntu-24.04
+    container:
+      image: debian:trixie
+      options: --privileged
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: astromesh-deb
+          path: dist
+      - name: Install mkosi + image tools
+        run: |
+          apt-get update
+          apt-get install -y mkosi systemd-ukify systemd-boot mtools dosfstools ca-certificates
+      - name: Build image (real mode)
+        env:
+          PHASE0_MODE: real
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: mkosi build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase1-image
+          path: mkosi.output/*.raw
+
+  publish:
+    needs: build-image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase1-image
+          path: image
+      - name: Install ORAS
+        run: |
+          url=$(curl -sfL https://api.github.com/repos/oras-project/oras/releases/latest \
+            | python3 -c "import sys,json; a=json.load(sys.stdin)['assets']; print(next(x['browser_download_url'] for x in a if x['name'].endswith('_linux_amd64.tar.gz')))")
+          curl -sfL "$url" -o oras.tgz
+          tar -xzf oras.tgz oras
+          sudo mv oras /usr/local/bin/oras
+          oras version
+      - name: Validate ORAS tooling
+        run: bash -n cloud/oras/push.sh cloud/oras/pull.sh
+      - name: Publish artifact (only with DOCKERHUB_TOKEN)
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          ORAS_REPO: docker.io/monaccode/astromesh-os
+          ORAS_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
+        run: |
+          if [ -z "${DOCKERHUB_TOKEN}" ]; then
+            echo "No DOCKERHUB_TOKEN secret — skipping real push (tooling validated)."
+            exit 0
+          fi
+          echo "${DOCKERHUB_TOKEN}" | oras login docker.io -u monaccode --password-stdin
+          RAW=$(ls image/*.raw | head -1)
+          ORAS_TAG="${ORAS_TAG#v}" bash cloud/oras/push.sh "${RAW}"

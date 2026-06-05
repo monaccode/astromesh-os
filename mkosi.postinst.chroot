@@ -47,6 +47,15 @@ if [ -d /opt/astromesh/venv/bin ]; then
 fi
 echo "[postinst] astromeshd shebang after fix:"; head -1 /opt/astromesh/venv/bin/astromeshd 2>&1 || true
 
+# 1c. Trim the venv to help fit the size budget (spec §4.2): bytecode caches and
+#     in-package test dirs. Only safe-to-remove artefacts; the boot-to-agent gate
+#     guards against removing anything the runtime needs.
+echo "[postinst] stripping venv caches/tests"
+find /opt/astromesh/venv -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
+find /opt/astromesh/venv -type f -name '*.pyc' -delete 2>/dev/null || true
+find /opt/astromesh/venv -type d \( -name tests -o -name test \) \
+    -path '*/site-packages/*' -prune -exec rm -rf {} + 2>/dev/null || true
+
 # 2. Install the smoke agent variant for this mode into the auto-loaded agents dir.
 #    The runtime reads model.primary.endpoint (NOT providers.yaml), so the endpoint
 #    lives in the agent YAML itself.
@@ -63,9 +72,9 @@ echo "OPENAI_API_KEY=${OPENAI_API_KEY:-sk-phase0-stub-dummy}" > "${ETC}/.env"
 chmod 0640 "${ETC}/.env"
 chown root:astromesh "${ETC}/.env"
 
-# 4. Stub OpenAI server + service, only in stub mode. fastapi/uvicorn come from the
-#    image's apt packages (python3-fastapi/python3-uvicorn) — mkosi runs this script
-#    without network, so we cannot pip-install here.
+# 4. Stub OpenAI server + service, only in stub mode. The stub runs with the runtime
+#    venv's python (which already bundles fastapi/uvicorn), so no extra packages are
+#    installed here (mkosi runs this script without network anyway).
 if [ "${MODE}" = "stub" ]; then
     echo "[postinst] Installing Phase 0 stub"
     install -d /opt/phase0-stub
@@ -97,5 +106,13 @@ WD
 
 # 7. Ensure astromeshd is enabled (the .deb already does this; idempotent).
 systemctl enable astromeshd.service
+
+
+# 8. Boot-to-agent target: make astromeshd the purpose of the system. getty is
+#    intentionally kept (no-shell is Fase 3). The target's own `Requires=astromeshd`
+#    is what starts the daemon (an [Install] WantedBy in a drop-in is ignored by
+#    systemctl enable), so no service drop-in is needed.
+install -m 0644 "${SRC}/phase1/astromesh-os.target" /usr/lib/systemd/system/astromesh-os.target
+systemctl set-default astromesh-os.target
 
 echo "[postinst] done (mode=${MODE})"

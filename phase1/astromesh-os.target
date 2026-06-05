@@ -1,0 +1,8 @@
+[Unit]
+Description=Astromesh OS boot-to-agent target
+Documentation=https://github.com/monaccode/astromesh-os
+# Pull in the normal system (systemd-networkd, getty, ...) so the API is reachable,
+# AND make astromeshd a hard requirement of reaching the target — it is the purpose.
+Requires=multi-user.target astromeshd.service
+After=multi-user.target astromeshd.service
+AllowIsolate=yes

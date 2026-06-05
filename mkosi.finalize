@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Runs at the end of the mkosi build with the assembled rootfs at $BUILDROOT.
+# Measures the image, logs a breakdown of the heavy directories, and fails the
+# build if it exceeds the size budget (Phase 1 hard gate, spec §5).
+set -euo pipefail
+
+BUDGET_MB="${PHASE1_SIZE_BUDGET_MB:-500}"
+ROOT="${BUILDROOT:?BUILDROOT not set}"
+
+used_bytes=$(du -sb "${ROOT}" | cut -f1)
+used_mb=$(( used_bytes / 1024 / 1024 ))
+
+echo "[finalize] rootfs size: ${used_mb} MB (budget ${BUDGET_MB} MB)"
+echo "[finalize] heaviest paths:"
+du -sh "${ROOT}/opt/astromesh" "${ROOT}/usr/lib/modules" "${ROOT}/usr/lib" \
+       "${ROOT}/usr/bin" "${ROOT}/usr/share" 2>/dev/null | sort -rh | head -10 || true
+echo "[finalize] venv site-packages top dirs:"
+du -sh "${ROOT}"/opt/astromesh/venv/lib/python*/site-packages/* 2>/dev/null \
+    | sort -rh | head -15 || true
+
+if [ "${used_mb}" -gt "${BUDGET_MB}" ]; then
+    echo "[finalize] OVER BUDGET by $(( used_mb - BUDGET_MB )) MB"
+    exit 1
+fi
+echo "[finalize] within budget (${used_mb}/${BUDGET_MB} MB)"
