@@ -78,16 +78,9 @@ jobs:
           # Serve the root + verity split images.
           cp -L mkosi.output/astromesh-os-phase0_2.root-x86-64.raw update-served/
           cp -L mkosi.output/astromesh-os-phase0_2.root-x86-64-verity.raw update-served/
-          # mkosi emits no standalone UKI, only the ESP partition image; locate and
-          # extract the UKI out of it (FAT) with mtools and serve it as a standalone
-          # .efi so the regular-file UKI transfer can drop it into /EFI/Linux.
-          ESP=mkosi.output/astromesh-os-phase0_2.esp.raw
-          echo "=== v2 ESP full tree ==="
-          mdir -i "$ESP" -b -/ :: || true
-          for uki in $(mdir -i "$ESP" -b -/ :: 2>/dev/null | grep -iE '\.efi$' | grep -iE 'Linux|astromesh'); do
-            echo "extracting UKI: $uki"
-            mcopy -i "$ESP" "::${uki#::}" "update-served/$(basename "$uki")" 2>/dev/null || true
-          done
+          # With UnifiedKernelImages=yes mkosi emits a standalone UKI named
+          # astromesh-os-phase0_<ver>.efi — serve it (matches the UKI transfer pattern).
+          cp -L mkosi.output/astromesh-os-phase0_2.efi update-served/
           echo "=== served ==="; ls -la update-served
       - uses: actions/upload-artifact@v4
         with:

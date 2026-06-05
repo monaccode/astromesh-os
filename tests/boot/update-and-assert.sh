@@ -44,7 +44,13 @@ wait_health() {
 }
 
 echo "[update] waiting for v1 health"
-wait_health 180 || { echo "[update] FAIL: v1 never came up"; tail -n 120 qemu-console.log; exit 1; }
+wait_health 180 || {
+    echo "[update] FAIL: v1 never came up"
+    echo "----- kernel command line -----"; grep -a -m1 'Kernel command line' qemu-console.log || true
+    echo "----- console head -----"; head -n 80 qemu-console.log || true
+    echo "----- console tail -----"; tail -n 200 qemu-console.log || true
+    exit 1
+}
 if grep -q "ASTROMESH_BUILD=1" qemu-console.log; then
     echo "[update] PASS: booted v1"
 else
