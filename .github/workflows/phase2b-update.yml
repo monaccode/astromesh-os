@@ -75,11 +75,13 @@ jobs:
       - name: Stage v2 split artifacts for sysupdate
         run: |
           mkdir -p update-served
-          # Serve the split artifacts (root, verity) and the UKI — NOT the full _2.raw.
-          for f in mkosi.output/astromesh-os-phase0_2.root-x86-64.raw \
-                   mkosi.output/astromesh-os-phase0_2.root-x86-64-verity.raw \
-                   mkosi.output/astromesh-os-phase0_2.efi; do
-            [ -f "$f" ] && cp "$f" update-served/ || echo "MISSING: $f"
+          # Serve every v2 split artifact except the giant full disk image, so sysupdate
+          # finds the root, verity, ESP and UKI regardless of exact naming.
+          for f in mkosi.output/astromesh-os-phase0_2.*; do
+            case "$f" in
+              *.raw) [ "$f" = "mkosi.output/astromesh-os-phase0_2.raw" ] && continue ;;
+            esac
+            cp -L "$f" update-served/ 2>/dev/null || true
           done
           echo "=== full mkosi.output ==="; ls -la mkosi.output
           echo "=== served ==="; ls -la update-served
