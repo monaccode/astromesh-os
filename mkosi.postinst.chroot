@@ -115,4 +115,14 @@ systemctl enable astromeshd.service
 install -m 0644 "${SRC}/phase1/astromesh-os.target" /usr/lib/systemd/system/astromesh-os.target
 systemctl set-default astromesh-os.target
 
+
+# 9. Immutability (Fase 2a): /var is a baked writable partition (mkosi.repart with
+#    MountPoint=/var); tmpfiles recreates the runtime dirs on the fresh /var (which
+#    shadows the dirs baked into the read-only root).
+install -m 0644 "${SRC}/phase2/tmpfiles/astromesh-var.conf" /usr/lib/tmpfiles.d/astromesh-var.conf
+install -d /usr/lib/astromesh-os
+install -m 0755 "${SRC}/phase2/immutability-check.sh" /usr/lib/astromesh-os/immutability-check.sh
+install -m 0644 "${SRC}/phase2/immutability-check.service" /etc/systemd/system/immutability-check.service
+systemctl enable immutability-check.service
+
 echo "[postinst] done (mode=${MODE})"

@@ -4,6 +4,9 @@
 set -euo pipefail
 
 IMAGE="${1:?usage: run-and-assert.sh <disk-image>}"
+# Phase 2a: systemd-repart creates /var in free space on first boot, so the disk
+# needs headroom beyond the minimized image.
+qemu-img resize "${IMAGE}" +3G >/dev/null
 PORT=8000
 BOOT_TIMEOUT=180
 AGENT="phase0-smoke"
@@ -48,7 +51,9 @@ deadline=$(( $(date +%s) + BOOT_TIMEOUT ))
 until curl -fsS "http://localhost:${PORT}/v1/health" >/dev/null 2>&1; do
     if [ "$(date +%s)" -ge "${deadline}" ]; then
         echo "[boot] FAIL: /v1/health did not respond in time"
-        echo "----- qemu-console.log (tail) -----"; tail -n 150 qemu-console.log || true
+        echo "----- kernel command line -----"; grep -a -m1 'Kernel command line' qemu-console.log || echo "(cmdline not captured)"
+        echo "----- qemu-console.log (head) -----"; head -n 80 qemu-console.log || true
+        echo "----- qemu-console.log (tail) -----"; tail -n 200 qemu-console.log || true
         exit 1
     fi
     sleep 3
@@ -68,5 +73,14 @@ echo "[boot] PASS: agent returned a non-empty response"
 
 echo "[boot] doctor (informational):"
 curl -fsS "http://localhost:${PORT}/v1/system/doctor" || echo "[boot] (doctor unavailable)"
+
+echo "[boot] asserting immutability marker"
+if grep -q "IMMUTABILITY OK" qemu-console.log; then
+    echo "[boot] PASS: IMMUTABILITY OK"
+else
+    echo "[boot] FAIL: immutability marker not found"
+    echo "----- immutability lines -----"; grep -i 'IMMUTABILITY' qemu-console.log || true
+    exit 1
+fi
 
 echo "[boot] GATE PASSED"

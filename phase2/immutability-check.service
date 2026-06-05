@@ -1,0 +1,14 @@
+[Unit]
+Description=Astromesh OS immutability self-check
+After=var.mount systemd-repart.service
+Wants=systemd-repart.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/immutability-check.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
