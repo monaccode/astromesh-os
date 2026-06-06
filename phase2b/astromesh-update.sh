@@ -17,10 +17,14 @@ if [ "${latest}" -le "${running}" ]; then log "already up to date; no-op"; exit 
 
 # 2. Active backing partitions of the verity root (data + hash), then pick the
 #    INACTIVE partition of each GPT type.
+shopt -s nullglob
+log "mapper: $(ls -1 /dev/mapper/ 2>/dev/null | tr '\n' ' ')"
 dm=$(basename "$(readlink -f /dev/mapper/root)")
+log "root dm=${dm}"
 active=""
 for s in /sys/block/"${dm}"/slaves/*; do active="${active} /dev/$(basename "${s}")"; done
-log "active backing:${active}"
+log "active backing:${active:- <none>}"
+log "--- lsblk ---"; lsblk -ln -o PATH,TYPE,PARTTYPE 2>&1 | while IFS= read -r l; do log "lsblk: ${l}"; done
 
 ROOT_TYPE="4f68bce3-e8cd-4db1-96e7-fbcaf984b709"
 VERITY_TYPE="2c7357ed-ebd2-46d9-aec1-23d437ec2bf5"
