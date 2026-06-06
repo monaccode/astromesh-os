@@ -115,11 +115,11 @@ jobs:
       - name: Serve v2 artifacts over HTTP (10.0.2.2:8088 from the guest)
         run: |
           cd update-served
-          # systemd-sysupdate enumerates versions from a SHA256SUMS manifest at the source.
-          sha256sum * > SHA256SUMS
-          echo "=== SHA256SUMS ==="; cat SHA256SUMS
+          # The custom updater reads the newest version from a LATEST file.
+          echo "2" > LATEST
+          echo "=== served ==="; ls -la
           nohup python3 -m http.server 8088 >/tmp/http.log 2>&1 &
-          sleep 2 && curl -sf http://127.0.0.1:8088/SHA256SUMS | head
+          sleep 2 && curl -sf http://127.0.0.1:8088/LATEST
       - name: Convert v1 to qcow2
         run: qemu-img convert -O qcow2 image/v1.raw v1.qcow2
       - name: Run A/B update gate
