@@ -128,6 +128,11 @@ install -m 0755 "${SRC}/phase2b/version-marker.sh" /usr/lib/astromesh-os/version
 install -m 0644 "${SRC}/phase2b/version-marker.service" /etc/systemd/system/version-marker.service
 systemctl enable version-marker.service
 
+# Fase 2b: custom A/B updater.
+install -m 0755 "${SRC}/phase2b/astromesh-update.sh" /usr/lib/astromesh-os/astromesh-update.sh
+install -m 0644 "${SRC}/phase2b/astromesh-update.service" /etc/systemd/system/astromesh-update.service
+systemctl enable astromesh-update.service
+
 install -m 0755 "${SRC}/phase2/immutability-check.sh" /usr/lib/astromesh-os/immutability-check.sh
 install -m 0644 "${SRC}/phase2/immutability-check.service" /etc/systemd/system/immutability-check.service
 systemctl enable immutability-check.service

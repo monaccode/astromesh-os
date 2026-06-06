@@ -1,0 +1,13 @@
+[Unit]
+Description=Astromesh OS A/B updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/astromesh-update.sh
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
