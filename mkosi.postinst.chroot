@@ -128,17 +128,6 @@ install -m 0755 "${SRC}/phase2b/version-marker.sh" /usr/lib/astromesh-os/version
 install -m 0644 "${SRC}/phase2b/version-marker.service" /etc/systemd/system/version-marker.service
 systemctl enable version-marker.service
 
-# Fase 2b: systemd-sysupdate A/B transfer rules.
-install -d /usr/lib/sysupdate.d
-install -m 0644 "${SRC}/phase2b/sysupdate.d/10-uki.transfer" /usr/lib/sysupdate.d/10-uki.transfer
-install -m 0644 "${SRC}/phase2b/sysupdate.d/20-root.transfer" /usr/lib/sysupdate.d/20-root.transfer
-install -m 0644 "${SRC}/phase2b/sysupdate.d/30-verity.transfer" /usr/lib/sysupdate.d/30-verity.transfer
-
-# Fase 2b: auto-update trigger (no-op when the source is unreachable).
-install -m 0755 "${SRC}/phase2b/autoupdate.sh" /usr/lib/astromesh-os/autoupdate.sh
-install -m 0644 "${SRC}/phase2b/autoupdate.service" /etc/systemd/system/autoupdate.service
-systemctl enable autoupdate.service
-
 install -m 0755 "${SRC}/phase2/immutability-check.sh" /usr/lib/astromesh-os/immutability-check.sh
 install -m 0644 "${SRC}/phase2/immutability-check.service" /etc/systemd/system/immutability-check.service
 systemctl enable immutability-check.service
