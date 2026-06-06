@@ -15,49 +15,49 @@ running=${running:-0}
 log "running=${running} latest=${latest}"
 if [ "${latest}" -le "${running}" ]; then log "already up to date; no-op"; exit 0; fi
 
-# 2. Active backing partitions of the verity root (data + hash), then pick the
-#    INACTIVE partition of each GPT type.
-shopt -s nullglob
-log "mapper: $(ls -1 /dev/mapper/ 2>/dev/null | tr '\n' ' ')"
-dm=$(basename "$(readlink -f /dev/mapper/root)")
-log "root dm=${dm}"
-active=""
-for s in /sys/block/"${dm}"/slaves/*; do active="${active} /dev/$(basename "${s}")"; done
-log "active backing:${active:- <none>}"
-log "--- lsblk ---"; lsblk -ln -o PATH,TYPE,PARTTYPE 2>&1 | while IFS= read -r l; do log "lsblk: ${l}"; done
-
+# 2. Identify the A/B slots and the INACTIVE one. There are exactly two root-data
+#    and two root-verity partitions (slot A = index 0, slot B = index 1, in repart
+#    order). The active slot is whichever root-data partition backs the mounted /.
 ROOT_TYPE="4f68bce3-e8cd-4db1-96e7-fbcaf984b709"
 VERITY_TYPE="2c7357ed-ebd2-46d9-aec1-23d437ec2bf5"
 
-inactive_of() {
-    local want="$1" path parttype a
-    while read -r path parttype; do
-        [ "${parttype}" = "${want}" ] || continue
-        for a in ${active}; do [ "${path}" = "${a}" ] && continue 2; done
-        echo "${path}"; return 0
-    done < <(lsblk -b -ln -o PATH,PARTTYPE)
-    return 1
-}
+mapfile -t ROOTS < <(lsblk -ln -o PATH,PARTTYPE | awk -v t="${ROOT_TYPE}" '$2==t{print $1}' | sort)
+mapfile -t VERS  < <(lsblk -ln -o PATH,PARTTYPE | awk -v t="${VERITY_TYPE}" '$2==t{print $1}' | sort)
+log "root slots: ${ROOTS[*]}  verity slots: ${VERS[*]}"
+if [ "${#ROOTS[@]}" -ne 2 ] || [ "${#VERS[@]}" -ne 2 ]; then
+    log "FAIL: expected 2 root + 2 verity slots"; exit 1
+fi
 
-inactive_root=$(inactive_of "${ROOT_TYPE}")  || { log "FAIL: no inactive root slot"; exit 1; }
-inactive_verity=$(inactive_of "${VERITY_TYPE}") || { log "FAIL: no inactive verity slot"; exit 1; }
+src=$(findmnt -no SOURCE / 2>/dev/null)
+log "root source=${src}"
+case "${src}" in
+    /dev/mapper/*|/dev/dm-*)  # verity active: resolve to the backing root-data partition
+        active_root=$(lsblk -s -ln -o PATH,PARTTYPE "${src}" | awk -v t="${ROOT_TYPE}" '$2==t{print $1; exit}') ;;
+    *) active_root="${src}" ;;
+esac
+log "active root=${active_root}"
+
+if [ "${active_root}" = "${ROOTS[0]}" ]; then
+    inactive_root="${ROOTS[1]}"; inactive_verity="${VERS[1]}"
+else
+    inactive_root="${ROOTS[0]}"; inactive_verity="${VERS[0]}"
+fi
 log "inactive root=${inactive_root} verity=${inactive_verity}"
 
-# 3. Download v_latest split artifacts to tmpfs.
+# 3+4. Stream each split image straight to its inactive partition (no temp file —
+#      the root image is too large for the /run tmpfs).
 base="astromesh-os-phase0_${latest}"
-curl -fsS "${SRC}/${base}.root-x86-64.raw"        -o /run/au-root.raw   || { log "FAIL: download root";   exit 1; }
-curl -fsS "${SRC}/${base}.root-x86-64-verity.raw" -o /run/au-verity.raw || { log "FAIL: download verity"; exit 1; }
-curl -fsS "${SRC}/${base}.efi"                    -o /run/au-uki.efi    || { log "FAIL: download uki";    exit 1; }
-
-# 4. Write to the inactive slots.
 log "writing root image -> ${inactive_root}"
-dd if=/run/au-root.raw   of="${inactive_root}"   bs=4M conv=fsync status=none || { log "FAIL: dd root";   exit 1; }
+curl -fsS "${SRC}/${base}.root-x86-64.raw" | dd of="${inactive_root}" bs=4M conv=fsync status=none \
+    || { log "FAIL: write root"; exit 1; }
 log "writing verity image -> ${inactive_verity}"
-dd if=/run/au-verity.raw of="${inactive_verity}" bs=4M conv=fsync status=none || { log "FAIL: dd verity"; exit 1; }
+curl -fsS "${SRC}/${base}.root-x86-64-verity.raw" | dd of="${inactive_verity}" bs=4M conv=fsync status=none \
+    || { log "FAIL: write verity"; exit 1; }
 
 # 5. Install the new UKI into the ESP (its embedded version makes systemd-boot pick it).
 esp=$(bootctl --print-esp-path 2>/dev/null || echo /boot)
-install -D -m 0644 /run/au-uki.efi "${esp}/EFI/Linux/${base}.efi" || { log "FAIL: install uki"; exit 1; }
+mkdir -p "${esp}/EFI/Linux"
+curl -fsS "${SRC}/${base}.efi" -o "${esp}/EFI/Linux/${base}.efi" || { log "FAIL: install uki"; exit 1; }
 log "installed UKI ${esp}/EFI/Linux/${base}.efi"
 sync
 
