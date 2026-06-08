@@ -22,6 +22,20 @@ running=${running:-0}
 log "running=${running} latest=${latest}"
 if [ "${latest}" -le "${running}" ]; then log "already up to date; no-op"; exit 0; fi
 
+# Don't retry a version that already FAILED its boot-counting trials: systemd-boot
+# leaves the exhausted UKI as <base>+0-<done>.efi (0 tries left = bad). Without this,
+# after a rollback the booted v1 would see latest>running and re-apply the bad update
+# → update→fail→rollback→update loop.
+esp=$(bootctl --print-esp-path 2>/dev/null || echo /boot)
+base="astromesh-os-phase0_${latest}"
+shopt -s nullglob
+bad_ukis=( "${esp}/EFI/Linux/${base}+0-"*.efi )
+shopt -u nullglob
+if [ "${#bad_ukis[@]}" -gt 0 ]; then
+    log "v${latest} already failed boot assessment (${bad_ukis[*]}); not retrying"
+    exit 0
+fi
+
 # 2. Enumerate the two root-data and two root-verity slots (sorted by device path =
 #    repart order: slot A then slot B).
 mapfile -t ROOTS < <(lsblk -ln -o PATH,PARTTYPE | awk -v t="${ROOT_TYPE}" '$2==t{print $1}' | sort)
@@ -58,12 +72,13 @@ log "inactive root=${inactive_root} verity=${inactive_verity}"
 
 # 4. Fetch the new UKI first so we can read its embedded verity roothash (stored as
 #    plain ASCII in the PE .cmdline section) — needed to relabel the slot partitions.
-base="astromesh-os-phase0_${latest}"
-esp=$(bootctl --print-esp-path 2>/dev/null || echo /boot)
+TRIES=3
+uki_dest="${esp}/EFI/Linux/${base}+${TRIES}.efi"
 mkdir -p "${esp}/EFI/Linux"
-curl -fsS "${SRC}/${base}.efi" -o "${esp}/EFI/Linux/${base}.efi" || { log "FAIL: download uki"; exit 1; }
-rh=$(grep -aoE 'roothash=[0-9a-f]{64}' "${esp}/EFI/Linux/${base}.efi" | head -1 | cut -d= -f2)
+curl -fsS "${SRC}/${base}.efi" -o "${uki_dest}" || { log "FAIL: download uki"; exit 1; }
+rh=$(grep -aoE 'roothash=[0-9a-f]{64}' "${uki_dest}" | head -1 | cut -d= -f2)
 [ -n "${rh}" ] || { log "FAIL: no roothash in new UKI"; exit 1; }
+log "installed trial UKI ${uki_dest} (${TRIES} tries)"
 log "new roothash=${rh}"
 
 # 5. Stream each split image straight to its inactive partition (no temp file — the
