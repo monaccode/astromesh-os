@@ -23,3 +23,26 @@ if [ "${used_mb}" -gt "${BUDGET_MB}" ]; then
     exit 1
 fi
 echo "[finalize] within budget (${used_mb}/${BUDGET_MB} MB)"
+
+# Fase 3.1: break-glass credential. mkosi applies RootPassword=hashed:! AFTER the postinst
+# script, so the provisioned hash must be set HERE (finalize runs last) or it gets clobbered
+# back to '!'. With getty masked and SSH absent, this hash is checkable only via sulogin at
+# the console. Empty -> root stays locked (break-glass disabled, fail-closed). Edit /etc/shadow
+# directly via python to avoid shell-quoting the $-delimited crypt hash.
+if [ -n "${ASTROMESH_BREAKGLASS_HASH:-}" ]; then
+    python3 - "${ROOT}/etc/shadow" "${ASTROMESH_BREAKGLASS_HASH}" <<'PY'
+import sys
+path, h = sys.argv[1], sys.argv[2]
+lines = open(path).read().splitlines()
+for i, ln in enumerate(lines):
+    f = ln.split(':')
+    if f and f[0] == 'root':
+        f[1] = h
+        lines[i] = ':'.join(f)
+        break
+open(path, 'w').write('\n'.join(lines) + '\n')
+PY
+    echo "[finalize] break-glass: provisioned root hash set"
+else
+    echo "[finalize] break-glass: no hash provided; root stays locked (disabled)"
+fi

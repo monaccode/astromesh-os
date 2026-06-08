@@ -175,17 +175,9 @@ fi
 # offline build chroot.
 systemctl mask serial-getty@.service getty@.service console-getty.service autovt@.service getty.target
 
-# Fase 3.1: break-glass credential. When ASTROMESH_BREAKGLASS_HASH is provided, set it as
-# root's password hash; with getty masked and SSH absent, it is checkable only via sulogin
-# at the serial console (operator appends systemd.unit=rescue.target at the systemd-boot
-# menu). Empty -> root stays locked (mkosi RootPassword=hashed:!) -> break-glass disabled
-# (fail-closed). The dev/CI gate passes a known hash; prod injects the real one.
-if [ -n "${ASTROMESH_BREAKGLASS_HASH:-}" ]; then
-    echo "[postinst] break-glass: setting provisioned root hash"
-    echo "root:${ASTROMESH_BREAKGLASS_HASH}" | chpasswd -e
-else
-    echo "[postinst] break-glass: no hash provided; root stays locked (disabled)"
-fi
+# Fase 3.1: break-glass credential is set in mkosi.finalize, NOT here. mkosi applies
+# RootPassword=hashed:! (mkosi.conf) AFTER postinst, which would clobber a hash set here
+# (verified: slot shadow came out as '!'). finalize runs last, so the hash sticks there.
 
 # Fase 3.1: hardening self-check (no-shell posture marker).
 install -m 0755 "${SRC}/phase3/astromesh-hardening-check.sh" /usr/lib/astromesh-os/astromesh-hardening-check.sh

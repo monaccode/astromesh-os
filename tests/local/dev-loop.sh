@@ -154,6 +154,10 @@ case "${TARGET}" in
 
   noshell)
     require_kvm; sync_src; ensure_deb
+    # Defensive: a stale http server on :HTTP_PORT (e.g. orphaned by a prior `rollback` run)
+    # is reachable from the guest at 10.0.2.2:HTTP_PORT, so this v1 image would auto-update
+    # itself on boot and boot the wrong slot — wrecking the no-shell assertion. Kill leftovers.
+    pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
     # Dev break-glass credential (password: "breakglass"); sha512crypt hash, single-quoted
     # so the $-delimited fields stay literal. Prod injects the real hash via the env var.
     BG_HASH='$6$X017Cf4QG5.ju9DW$hcicgd9vbWYJFQq9Ns6hLLqpF6tE0mAeM3Xzs7d96YDNHIY2R0.GTlUQr/51ogSAZo.L5k7ziLu8IVl7GRXaP0'
