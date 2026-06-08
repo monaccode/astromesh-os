@@ -46,7 +46,7 @@ wait_health() {
 }
 
 echo "[update] waiting for v1 health"
-wait_health 360 || {
+wait_health 180 || {
     echo "[update] FAIL: v1 never came up"
     echo "----- kernel command line -----"; grep -a -m1 'Kernel command line' qemu-console.log || true
     echo "----- console head -----"; head -n 80 qemu-console.log || true
