@@ -1,6 +1,45 @@
 # Fase 2b-update — estado y follow-up (bankeado 2026-06-06)
 
-> **✅ RESUELTO 2026-06-08.** El gate A/B `v1→v2` pasa end-to-end en CI (run
+> **✅ Fase 2b-rollback RESUELTO 2026-06-08 (gate local verde; CI en curso run `27170192681`).**
+> El rollback A/B automático funciona end-to-end en el loop local WSL2+KVM
+> (`tests/local/dev-loop.sh rollback` → `ROLLBACK GATE PASSED`). Evidencia del boot:
+> v1 instala el UKI de prueba `…_2+3.efi`, bootea la v2 deliberadamente unhealthy, y en
+> cada uno de los **3 trial boots** `astromesh-boot-check` ve `status=indeterminate` →
+> `/v1/health` nunca da 200 → `UNHEALTHY after 90s — rebooting`; systemd-boot decrementa
+> el contador `_2+3 → … → _2+0-3.efi` (agotado), cae a v1; marcadores `ASTROMESH_BUILD`
+> en orden `2,2,2,1`; v1 final `status=clean` + `/v1/health 200`; y el updater registra
+> `v2 already failed boot assessment; not retrying` (sin loop update→fail→rollback→update).
+>
+> **Mecanismo:** boot-counting nativo de systemd-boot. El updater instala el UKI nuevo con
+> sufijo `+tries`; un oneshot `astromesh-boot-check` sólo en trial boot marca el slot bueno
+> con health 200 o rebootea para consumir un try; agotados los tries systemd-boot vuelve al
+> UKI bueno previo. Se enmascara el `systemd-bless-boot.service` stock para que el blessing
+> sea sólo por salud.
+>
+> **Dos bugs que destrabó el gate (ambos en el harness/inyección de fallo, no en el
+> mecanismo):**
+> 1. `ASTROMESH_BREAK_HEALTH` enmascaraba `astromeshd`, pero `astromesh-os.target`
+>    `Requires=astromeshd` → "Failed to isolate default target" (fallo de boot, no boot
+>    unhealthy) y el boot-check nunca corría. Fix: drop-in `Type=exec`/`sleep infinity` →
+>    la unit queda *activa* (el target isola y se llega a multi-user) pero nada sirve `:8000`.
+> 2. El harness abría con un poll de `/v1/health` 180s; v1 auto-actualiza y rebootea en
+>    ~13s → ventana de salud ~1s, se perdía por carrera. Fix: esperar el marcador de consola
+>    `installed trial UKI` (determinista).
+>
+> **Limitación conocida (follow-up):** el rollback por boot-check sólo cubre
+> "bootea pero unhealthy". Un slot donde `astromeshd` no arranca tampoco isola el target y
+> NO rollbackea por este mecanismo — eso requeriría un watchdog de runtime que rebootee en
+> hang. Fuera de alcance de 2b-rollback.
+>
+> Artefactos: `phase2b/astromesh-boot-check.{sh,service}`, cambios en
+> `phase2b/astromesh-update.sh` (UKI `+tries` + guard de versión bad), bloque
+> `ASTROMESH_BREAK_HEALTH` en `mkosi.postinst.chroot`, `tests/boot/rollback-and-assert.sh`,
+> target `rollback` en `tests/local/dev-loop.sh`, job `rollback-gate` en
+> `.github/workflows/phase2b-update.yml`. Rama `feat/phase2b-rollback`.
+
+---
+
+> **✅ Fase 2b-update RESUELTO 2026-06-08.** El gate A/B `v1→v2` pasa end-to-end en CI (run
 > `27161183858`: `build-deb`/`build-images`/`update-gate` verdes; `UPDATE GATE PASSED`,
 > v2 bootea con verity y `/v1/health` 200). Sigue en `feat/phase2b` (no mergeado).
 >
