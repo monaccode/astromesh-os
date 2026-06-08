@@ -1,0 +1,15 @@
+[Unit]
+Description=Astromesh OS health-gated boot assessment (A/B rollback)
+# Run after the system is up so astromeshd has had a chance to start; the script
+# itself polls, so it tolerates a slow or absent astromeshd.
+After=multi-user.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/astromesh-boot-check.sh
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
