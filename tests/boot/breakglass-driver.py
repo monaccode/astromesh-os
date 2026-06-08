@@ -28,21 +28,32 @@ qemu = (
 child = pexpect.spawn(qemu, encoding="utf-8", timeout=180)
 child.logfile = sys.stdout
 
-# 1. Catch the systemd-boot menu and enter the editor. systemd-boot prints the entry
-#    title and waits for the timeout; any key stops the countdown.
-child.expect(r"Astromesh|systemd-boot|Boot in")   # menu is up
-child.send(" ")                                    # stop countdown
-child.sendline("")                                 # ensure the entry is selected
-child.send("e")                                    # edit cmdline of the selected entry
-child.sendline(" systemd.unit=rescue.target")      # append + Enter boots
+# 1. systemd-boot menu: a "Boot in N s." countdown over the default-selected entry
+#    ("Debian GNU/Linux 13 ..."). Stop the countdown with SPACE — a benign key that neither
+#    boots (Enter does) nor moves the selection (arrows do, off our entry).
+child.expect(r"Boot in \d+ s", timeout=60)
+child.send(" ")
 
-# 2. sulogin prompt on rescue. Accept either the maintenance hint or the password prompt.
-child.expect(r"Press Enter for maintenance|Give root password|root password|Password:")
+# 2. Edit the selected entry's kernel cmdline. After 'e', systemd-boot echoes the current
+#    cmdline (which contains console=ttyS0 and root=) for line-editing, cursor at the end.
+child.send("e")
+child.expect(r"console=ttyS0|root=", timeout=20)
+
+# 3. Insert the rescue unit and boot with Enter. systemd-boot's editor places the cursor at
+#    the START of the cmdline and trims a leading space, so wrap the token in BOTH a leading
+#    and a trailing space — that guarantees a separator whether it lands before `roothash=`
+#    (cursor at start) or after the last arg (cursor at end). Extra spaces are harmless.
+child.send(" systemd.unit=rescue.target ")
+child.send("\r")
+
+# 4. rescue.target runs sulogin, which prompts for the root password (the break-glass
+#    credential) because root now has a hash.
+child.expect(r"(?i)give root password|root password|press enter for maintenance|password:", timeout=150)
 child.sendline(password)
 
-# 3. Shell prompt -> prove root.
-child.expect(r"#|\$")
+# 5. Root maintenance shell -> prove uid=0.
+child.expect(r"[#$]", timeout=60)
 child.sendline("id")
-child.expect(r"uid=0\(root\)")
+child.expect(r"uid=0\(root\)", timeout=30)
 print("\n[breakglass-driver] PASS: root shell via break-glass (uid=0)")
 sys.exit(0)
