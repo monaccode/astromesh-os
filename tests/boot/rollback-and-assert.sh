@@ -37,17 +37,21 @@ qemu-system-x86_64 \
 QEMU_PID=$!
 trap 'kill ${QEMU_PID} 2>/dev/null || true' EXIT
 
-wait_health() {
-    local deadline=$(( $(date +%s) + $1 ))
-    until curl -fsS "http://localhost:${PORT}/v1/health" >/dev/null 2>&1; do
-        [ "$(date +%s)" -ge "${deadline}" ] && return 1
-        sleep 3
-    done
-}
-
-echo "[rollback] waiting for initial v1 health"
-wait_health 180 || { echo "[rollback] FAIL: v1 never came up"; tail -n 120 qemu-console.log; exit 1; }
-echo "[rollback] PASS: v1 up before update"
+# v1 auto-updates and reboots into the (broken) v2 within ~13s of booting, so its health
+# window on :8000 is ~1s — too short to catch by polling, and v2's health never comes up
+# by design. So a health poll here races-and-fails even while the rollback is progressing
+# correctly. Instead confirm v1 came up via deterministic console evidence that it booted
+# AND ran the updater: the "installed trial UKI" line.
+echo "[rollback] waiting for v1 to boot and apply the v2 update"
+boot_deadline=$(( $(date +%s) + 180 ))
+until grep -aq 'installed trial UKI' qemu-console.log 2>/dev/null; do
+    if [ "$(date +%s)" -ge "${boot_deadline}" ]; then
+        echo "[rollback] FAIL: v1 never booted / never applied the update"
+        tail -n 120 qemu-console.log; exit 1
+    fi
+    sleep 3
+done
+echo "[rollback] PASS: v1 booted and applied the v2 update"
 
 echo "[rollback] waiting for the bad-v2 attempt + rollback to v1 (up to ${TIMEOUT}s)"
 deadline=$(( $(date +%s) + TIMEOUT ))
