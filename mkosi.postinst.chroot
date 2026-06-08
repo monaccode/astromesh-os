@@ -133,8 +133,25 @@ install -m 0755 "${SRC}/phase2b/astromesh-update.sh" /usr/lib/astromesh-os/astro
 install -m 0644 "${SRC}/phase2b/astromesh-update.service" /etc/systemd/system/astromesh-update.service
 systemctl enable astromesh-update.service
 
+# Fase 2b-rollback: health-gated boot assessment.
+install -m 0755 "${SRC}/phase2b/astromesh-boot-check.sh" /usr/lib/astromesh-os/astromesh-boot-check.sh
+install -m 0644 "${SRC}/phase2b/astromesh-boot-check.service" /etc/systemd/system/astromesh-boot-check.service
+systemctl enable astromesh-boot-check.service
+# The stock systemd-bless-boot.service marks the booted entry good UNCONDITIONALLY when
+# boot-complete.target is reached — which a booted-but-unhealthy slot also reaches. Mask
+# it so blessing happens ONLY via astromesh-boot-check (on health). systemd-boot still
+# decrements the +tries counter on its own; only the "mark good" is ours.
+systemctl mask systemd-bless-boot.service
+
 install -m 0755 "${SRC}/phase2/immutability-check.sh" /usr/lib/astromesh-os/immutability-check.sh
 install -m 0644 "${SRC}/phase2/immutability-check.service" /etc/systemd/system/immutability-check.service
 systemctl enable immutability-check.service
+
+# Test-only: ASTROMESH_BREAK_HEALTH=1 cripples astromeshd so /v1/health never comes up,
+# used to exercise the A/B rollback gate. Off by default; never set in normal builds.
+if [ "${ASTROMESH_BREAK_HEALTH:-0}" = "1" ]; then
+    echo "[postinst] ASTROMESH_BREAK_HEALTH=1 → masking astromeshd (deliberately unhealthy build)"
+    systemctl mask astromeshd.service
+fi
 
 echo "[postinst] done (mode=${MODE})"
