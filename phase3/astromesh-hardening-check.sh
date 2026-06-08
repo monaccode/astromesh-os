@@ -10,9 +10,13 @@ log() { echo "[hardening] $*"; }
 # 1. No interactive login: the getty templates must be masked (masking a template masks
 #    all instances). A unit that does not exist at all is also fine (no login path).
 for u in serial-getty@.service getty@.service; do
-    state=$(systemctl is-enabled "$u" 2>/dev/null || echo not-found)
+    # `systemctl is-enabled` prints "masked" (or nothing, for a non-existent unit) to stdout
+    # and exits NON-ZERO for both. So DON'T append a fallback with `|| echo ...` — that would
+    # concatenate onto the real "masked" output and corrupt the match. Capture stdout only;
+    # empty == no such unit == also no login path == OK.
+    state=$(systemctl is-enabled "$u" 2>/dev/null || true)
     case "$state" in
-        masked|not-found) ;;
+        masked|"") ;;
         *) log "FAIL: ${u} is '${state}', expected masked"; fail=1 ;;
     esac
 done
