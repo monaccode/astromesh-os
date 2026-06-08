@@ -147,11 +147,25 @@ install -m 0755 "${SRC}/phase2/immutability-check.sh" /usr/lib/astromesh-os/immu
 install -m 0644 "${SRC}/phase2/immutability-check.service" /etc/systemd/system/immutability-check.service
 systemctl enable immutability-check.service
 
-# Test-only: ASTROMESH_BREAK_HEALTH=1 cripples astromeshd so /v1/health never comes up,
-# used to exercise the A/B rollback gate. Off by default; never set in normal builds.
+# Test-only: ASTROMESH_BREAK_HEALTH=1 makes this build deliberately UNHEALTHY to exercise
+# the A/B rollback gate. The slot must still BOOT to the default target: astromesh-os.target
+# has Requires=astromeshd.service, so MASKING astromeshd would make the target un-isolable
+# ("Failed to isolate default target") — a boot *failure*, during which the health-gated
+# boot-check never runs and nothing ever rolls back. Instead keep astromeshd ACTIVE but
+# serving nothing on :8000: a Type=exec `sleep` counts as active the instant it execs (no
+# READY=1 needed, unlike the real Type=notify daemon), so the target isolates and the
+# system reaches multi-user.target and runs astromesh-boot-check, while /v1/health stays
+# dead → boot-check times out → reboot → tries exhaust → rollback. Never set in normal builds.
 if [ "${ASTROMESH_BREAK_HEALTH:-0}" = "1" ]; then
-    echo "[postinst] ASTROMESH_BREAK_HEALTH=1 → masking astromeshd (deliberately unhealthy build)"
-    systemctl mask astromeshd.service
+    echo "[postinst] ASTROMESH_BREAK_HEALTH=1 → astromeshd active but health-dead (rollback gate)"
+    install -d /etc/systemd/system/astromeshd.service.d
+    cat > /etc/systemd/system/astromeshd.service.d/99-break-health.conf <<'BRK'
+[Service]
+Type=exec
+ExecStart=
+ExecStart=/usr/bin/sleep infinity
+Restart=no
+BRK
 fi
 
 echo "[postinst] done (mode=${MODE})"
