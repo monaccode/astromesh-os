@@ -25,7 +25,7 @@ qemu = (
     "-nic user,model=virtio-net-pci"
 )
 
-child = pexpect.spawn(qemu, encoding="utf-8", timeout=180)
+child = pexpect.spawn(qemu, encoding="utf-8", timeout=300)  # generous for TCG (no KVM) in CI
 child.logfile = sys.stdout
 
 # 1. systemd-boot menu: a "Boot in N s." countdown over the default-selected entry
@@ -48,11 +48,11 @@ child.send("\r")
 
 # 4. rescue.target runs sulogin, which prompts for the root password (the break-glass
 #    credential) because root now has a hash.
-child.expect(r"(?i)give root password|root password|press enter for maintenance|password:", timeout=150)
+child.expect(r"(?i)give root password|root password|press enter for maintenance|password:", timeout=240)
 child.sendline(password)
 
 # 5. Root maintenance shell -> prove uid=0.
-child.expect(r"[#$]", timeout=60)
+child.expect(r"[#$]", timeout=120)
 child.sendline("id")
 child.expect(r"uid=0\(root\)", timeout=30)
 print("\n[breakglass-driver] PASS: root shell via break-glass (uid=0)")

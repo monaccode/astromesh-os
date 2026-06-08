@@ -28,7 +28,7 @@ qemu-img resize noshell.qcow2 +2G >/dev/null
 # --- Assertion 1: no-shell marker on a normal boot ---
 cp "${OVMF_VARS_SRC}" ovmf_vars_noshell.fd
 echo "[noshell] boot 1: asserting NO-SHELL OK marker"
-timeout 180 qemu-system-x86_64 \
+timeout 300 qemu-system-x86_64 \
     -machine q35 -m 2048 -smp 2 -nographic \
     -drive if=pflash,format=raw,unit=0,readonly=on,file="${OVMF_CODE}" \
     -drive if=pflash,format=raw,unit=1,file=ovmf_vars_noshell.fd \
@@ -37,7 +37,7 @@ timeout 180 qemu-system-x86_64 \
     > noshell-console.log 2>&1 &
 QPID=$!
 trap 'kill ${QPID} 2>/dev/null || true' EXIT
-deadline=$(( $(date +%s) + 150 ))
+deadline=$(( $(date +%s) + 240 ))   # generous for TCG (no KVM) + the 20s boot menu
 until grep -aq 'hardening\] NO-SHELL OK' noshell-console.log; do
     if grep -aq 'NO-SHELL FAILED' noshell-console.log; then
         echo "[noshell] FAIL: self-check reported NO-SHELL FAILED"; tail -n 80 noshell-console.log; exit 1
