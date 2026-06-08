@@ -10,8 +10,10 @@ TIMEOUT=300
 
 qemu-img resize "${IMAGE}" +4G >/dev/null
 
-KVM_FLAG=""
-if [ -w /dev/kvm ]; then KVM_FLAG="-enable-kvm"; fi
+# With KVM use it. Without it (GitHub-hosted runners have no /dev/kvm) fall back to
+# multi-threaded TCG + more vCPUs so the slow software-emulated boot — notably the
+# dm-verity device setup in the initrd — completes well inside the device timeout.
+if [ -w /dev/kvm ]; then ACCEL="-enable-kvm"; SMP=2; else ACCEL="-accel tcg,thread=multi"; SMP=4; fi
 
 OVMF_CODE=""
 for c in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd /usr/share/ovmf/OVMF.fd; do
@@ -26,7 +28,7 @@ cp "${OVMF_VARS_SRC}" ovmf_vars.fd
 
 echo "[update] starting QEMU (persistent, reboots allowed)"
 qemu-system-x86_64 \
-    ${KVM_FLAG} -machine q35 -m 2048 -smp 2 -nographic \
+    ${ACCEL} -machine q35 -m 2048 -smp ${SMP} -nographic \
     -drive if=pflash,format=raw,unit=0,readonly=on,file="${OVMF_CODE}" \
     -drive if=pflash,format=raw,unit=1,file=ovmf_vars.fd \
     -drive file="${IMAGE}",format=qcow2,if=virtio \
@@ -44,7 +46,7 @@ wait_health() {
 }
 
 echo "[update] waiting for v1 health"
-wait_health 180 || {
+wait_health 360 || {
     echo "[update] FAIL: v1 never came up"
     echo "----- kernel command line -----"; grep -a -m1 'Kernel command line' qemu-console.log || true
     echo "----- console head -----"; head -n 80 qemu-console.log || true
