@@ -15,6 +15,9 @@ set -euo pipefail
 TARGET="${1:-update}"
 SRC="${ASTROMESH_SRC:-/mnt/d/monaccode/astromesh-os}"
 WORKDIR="${ASTROMESH_WORKDIR:-${HOME}/astromesh-build}"
+# Persistent mkosi cache for --incremental. Kept OUTSIDE WORKDIR so the rsync
+# --delete on each sync does not wipe it.
+CACHE="${ASTROMESH_CACHE:-${HOME}/.cache/mkosi-astromesh}"
 IMAGE_ID="astromesh-os-phase0"
 HTTP_PORT=8088
 
@@ -57,9 +60,20 @@ ensure_deb() {
 (see README → Local dev loop). The .deb is then picked up by the next sync."
 }
 
-build_v() {  # $1=version  $2=extra mkosi flags (optional)
-    log "mkosi build v$1 ${2:-}"
-    ( cd "${WORKDIR}" && PHASE0_MODE=stub mkosi --image-version="$1" ${2:-} build )
+build_v() {  # $1=version
+    # --force is required: `mkosi build` SKIPS when the output image already exists
+    # ("exists already. Use --force to rebuild."), which would silently reuse a stale
+    # image and not pick up source changes. Each version (_1/_2) has its own output
+    # name, so forcing one does not remove the other.
+    # --force: `mkosi build` SKIPS when the output exists (silently reusing a stale
+    #   image). --cache-dir caches apt downloads so rebuilds re-fetch nothing.
+    # (--incremental is intentionally NOT used: caching the bootstrapped tree breaks
+    #  when the package set changes — kmod postinst then fails mid-build.)
+    # The fixed repart Seed= (mkosi.conf) keeps /var's filesystem UUID identical across
+    # the v1/v2 builds — required because /var is shared across the A/B slots.
+    log "mkosi build v$1 (--force)"
+    mkdir -p "${CACHE}"
+    ( cd "${WORKDIR}" && PHASE0_MODE=stub mkosi --image-version="$1" --force --cache-dir="${CACHE}" build )
 }
 
 case "${TARGET}" in
@@ -77,7 +91,7 @@ case "${TARGET}" in
   update)
     require_kvm; sync_src; ensure_deb
     build_v 1
-    build_v 2 --force
+    build_v 2
     cd "${WORKDIR}"
     # Stage + serve the v2 split artifacts exactly like the CI workflow: the in-guest
     # updater pulls them from http://10.0.2.2:8088 (the SLIRP gateway == this host).
