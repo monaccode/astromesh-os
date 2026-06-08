@@ -56,6 +56,17 @@ wait_health 180 || {
 for _ in $(seq 1 20); do grep -q "ASTROMESH_BUILD=1" qemu-console.log && break; sleep 2; done
 if grep -q "ASTROMESH_BUILD=1" qemu-console.log; then
     echo "[update] PASS: booted v1"
+    # Diagnostic — is dm-verity active at runtime under UnifiedKernelImages=yes?
+    # The immutability self-check already logs its verdict to the console; surface it
+    # here (non-fatal) to settle the "verity in initrd vs. absent at runtime" question.
+    if grep -q "IMMUTABILITY OK" qemu-console.log; then
+        echo "[update] DIAG: IMMUTABILITY OK — verity active at runtime (/dev/mapper/root)"
+    elif grep -aom1 "IMMUTABILITY FAIL: .*" qemu-console.log; then
+        echo "[update] DIAG: verity NOT active at runtime"
+    else
+        echo "[update] DIAG: no IMMUTABILITY marker seen yet"
+    fi
+    echo "[update] DIAG: $(grep -a -m1 'Kernel command line' qemu-console.log || echo 'cmdline not logged')"
 else
     echo "[update] FAIL: v1 marker not found"
     echo "----- console tail -----"; tail -n 120 qemu-console.log || true

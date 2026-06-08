@@ -71,6 +71,25 @@ jobs:
         run: mkosi --image-version=1 build
       - name: List v1 artifacts
         run: ls -la mkosi.output
+      - name: Diagnostic — inspect v1 UKI cmdline + partition layout
+        # Static, boot-independent evidence for the verity-under-UKI question:
+        #   (1) does the UKI cmdline actually carry roothash=? (mkosi should add it)
+        #   (2) are the two Type=root / two Type=root-verity partitions laid out as
+        #       expected, and is the A-slot UUID derived from the roothash?
+        run: |
+          set -x
+          uki="mkosi.output/astromesh-os-phase0_1.efi"
+          echo "=== UKI cmdline (.cmdline section) ==="
+          if [ -f "$uki" ]; then
+            UKIFY=$(command -v ukify || echo /usr/lib/systemd/ukify)
+            "$UKIFY" inspect "$uki" 2>&1 | sed -n '1,250p' || true
+          else
+            echo "no split UKI at $uki"; ls -la mkosi.output || true
+          fi
+          echo "=== v1 partition table (types + UUIDs) ==="
+          sfdisk -d mkosi.output/astromesh-os-phase0_1.raw 2>/dev/null \
+            || fdisk -l mkosi.output/astromesh-os-phase0_1.raw 2>/dev/null \
+            || echo "no sfdisk/fdisk available"
       - run: mkdir -p out && cp mkosi.output/astromesh-os-phase0_1.raw out/v1.raw
       - name: Build v2 (split artifacts)
         env:
