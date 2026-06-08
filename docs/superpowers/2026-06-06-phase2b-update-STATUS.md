@@ -1,6 +1,6 @@
 # Fase 2b-update — estado y follow-up (bankeado 2026-06-06)
 
-> **✅ Fase 2b-rollback RESUELTO 2026-06-08 (gate local verde; CI en curso run `27170192681`).**
+> **✅ Fase 2b-rollback RESUELTO 2026-06-08 (gate local + CI verdes — run `27170192681`: `build-deb`/`build-images`/`update-gate`/`rollback-gate` todos success; `ROLLBACK GATE PASSED`, y `update-gate` sigue verde → el happy path no se rompió).**
 > El rollback A/B automático funciona end-to-end en el loop local WSL2+KVM
 > (`tests/local/dev-loop.sh rollback` → `ROLLBACK GATE PASSED`). Evidencia del boot:
 > v1 instala el UKI de prueba `…_2+3.efi`, bootea la v2 deliberadamente unhealthy, y en
