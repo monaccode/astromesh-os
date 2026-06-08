@@ -1,7 +1,21 @@
 # Fase 2b-update — estado y follow-up (bankeado 2026-06-06)
 
-> **Estado:** Pausado/bankeado en `feat/phase2b` (NO mergeado). Fase 0/1/2a quedan completas y verdes en `main`.
-> **Por qué:** ~18 iteraciones de CI entre dos enfoques; el boot A/B con dm-verity en este stack (mkosi 25.3 / Debian trixie / UKI) tiene comportamiento sutil y en parte flaky. Retorno marginal bajo vs. el resto del programa. Decisión de producto: bankear y retomar con tiempo dedicado.
+> **✅ RESUELTO 2026-06-08.** El gate A/B `v1→v2` pasa end-to-end en CI (run
+> `27161183858`: `build-deb`/`build-images`/`update-gate` verdes; `UPDATE GATE PASSED`,
+> v2 bootea con verity y `/v1/health` 200). Sigue en `feat/phase2b` (no mergeado).
+>
+> **Qué destrabó (iterado en el loop local WSL2+KVM — ver `tests/local/dev-loop.sh`):**
+> 1. **Verity reproducible:** `mkosi.repart/10-root.conf` con tamaño fijo (no `Minimize`)
+>    → el `roothash=` del UKI coincide con las particiones del disco (antes no, y por eso
+>    `/dev/mapper/root` no aparecía). Esto explica la "contradicción de verity" de abajo:
+>    era un mismatch de roothash, no un problema de UKI vs runtime.
+> 2. **Updater A/B** (`phase2b/astromesh-update.sh`): detección de slot activo vía el
+>    roothash de `/proc/cmdline`; relabel de los UUID GPT del slot inactivo al nuevo
+>    roothash (`sfdisk`, paquete `fdisk`) para que el UKI v2 encuentre su verity.
+> 3. **`/var` compartido:** `Seed=` fijo en `mkosi.conf` → el fs-UUID de `/var` es estable
+>    entre v1/v2 (si no, el `var.mount` de v2 colgaba → emergency).
+>
+> Lo de abajo es el estado histórico del bankeo; queda como contexto.
 
 ---
 
