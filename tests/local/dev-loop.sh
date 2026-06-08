@@ -152,6 +152,18 @@ case "${TARGET}" in
     bash tests/boot/rollback-and-assert.sh v1.qcow2
     ;;
 
+  noshell)
+    require_kvm; sync_src; ensure_deb
+    # Dev break-glass credential (password: "breakglass"); sha512crypt hash, single-quoted
+    # so the $-delimited fields stay literal. Prod injects the real hash via the env var.
+    BG_HASH='$6$X017Cf4QG5.ju9DW$hcicgd9vbWYJFQq9Ns6hLLqpF6tE0mAeM3Xzs7d96YDNHIY2R0.GTlUQr/51ogSAZo.L5k7ziLu8IVl7GRXaP0'
+    build_v 1 "ASTROMESH_BREAKGLASS_HASH=${BG_HASH}"
+    cd "${WORKDIR}"
+    # The break-glass driver needs pexpect.
+    python3 -c 'import pexpect' 2>/dev/null || apt-get install -y python3-pexpect
+    bash tests/boot/noshell-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw" breakglass
+    ;;
+
   clean)
     rm -rf "${WORKDIR}/mkosi.output" "${WORKDIR}"/*.qcow2 \
            "${WORKDIR}/ovmf_vars.fd" "${WORKDIR}/qemu-console.log" "${WORKDIR}/update-served"
@@ -159,7 +171,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
