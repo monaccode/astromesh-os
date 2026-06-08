@@ -60,7 +60,7 @@ ensure_deb() {
 (see README → Local dev loop). The .deb is then picked up by the next sync."
 }
 
-build_v() {  # $1=version
+build_v() {  # $1=version  $2=extra "VAR=val" env (optional)
     # --force is required: `mkosi build` SKIPS when the output image already exists
     # ("exists already. Use --force to rebuild."), which would silently reuse a stale
     # image and not pick up source changes. Each version (_1/_2) has its own output
@@ -71,9 +71,9 @@ build_v() {  # $1=version
     #  when the package set changes — kmod postinst then fails mid-build.)
     # The fixed repart Seed= (mkosi.conf) keeps /var's filesystem UUID identical across
     # the v1/v2 builds — required because /var is shared across the A/B slots.
-    log "mkosi build v$1 (--force)"
+    log "mkosi build v$1 (--force) ${2:-}"
     mkdir -p "${CACHE}"
-    ( cd "${WORKDIR}" && PHASE0_MODE=stub mkosi --image-version="$1" --force --cache-dir="${CACHE}" build )
+    ( cd "${WORKDIR}" && env PHASE0_MODE=stub ${2:-} mkosi --image-version="$1" --force --cache-dir="${CACHE}" build )
 }
 
 case "${TARGET}" in
@@ -133,6 +133,25 @@ case "${TARGET}" in
     fi
     ;;
 
+  rollback)
+    require_kvm; sync_src; ensure_deb
+    build_v 1
+    build_v 2 "ASTROMESH_BREAK_HEALTH=1"   # deliberately unhealthy v2
+    cd "${WORKDIR}"
+    rm -rf update-served && mkdir -p update-served
+    cp -L "mkosi.output/${IMAGE_ID}_2.root-x86-64.raw"        update-served/
+    cp -L "mkosi.output/${IMAGE_ID}_2.root-x86-64-verity.raw" update-served/
+    cp -L "mkosi.output/${IMAGE_ID}_2.efi"                    update-served/
+    echo 2 > update-served/LATEST
+    ( cd update-served && nohup python3 -m http.server "${HTTP_PORT}" >/tmp/dev-loop-http.log 2>&1 & echo $! > /tmp/dev-loop-http.pid )
+    trap 'kill "$(cat /tmp/dev-loop-http.pid 2>/dev/null)" 2>/dev/null || true' EXIT
+    sleep 1
+    curl -sf "http://127.0.0.1:${HTTP_PORT}/LATEST" >/dev/null || die "HTTP server not serving on ${HTTP_PORT}"
+    log "serving UNHEALTHY v2 artifacts on :${HTTP_PORT}"
+    qemu-img convert -O qcow2 "mkosi.output/${IMAGE_ID}_1.raw" v1.qcow2
+    bash tests/boot/rollback-and-assert.sh v1.qcow2
+    ;;
+
   clean)
     rm -rf "${WORKDIR}/mkosi.output" "${WORKDIR}"/*.qcow2 \
            "${WORKDIR}/ovmf_vars.fd" "${WORKDIR}/qemu-console.log" "${WORKDIR}/update-served"
@@ -140,7 +159,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
