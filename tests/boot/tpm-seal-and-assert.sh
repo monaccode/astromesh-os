@@ -2,19 +2,27 @@
 # Fase 3.3 gate: prove the provider key is sealed to the TPM and recoverable ONLY under an
 # intact boot. Boot 1 (intact, +swtpm +SMBIOS key): seal + unseal + astromeshd health 200.
 # Boot 2 (same disk + swtpm, tampered cmdline): unseal must FAIL (PCR 11 differs).
-# Usage: tpm-seal-and-assert.sh <disk.qcow2>
+# Usage: tpm-seal-and-assert.sh <v1-raw-image>
 set -euo pipefail
-IMAGE="${1:?usage: tpm-seal-and-assert.sh <disk.qcow2>}"
+RAW="${1:?usage: tpm-seal-and-assert.sh <v1-raw-image>}"
+IMAGE=tpm.qcow2          # both boots share this persistent disk (the sealed blob lives in /var)
 PORT=8000
 DEVKEY="sk-phase33-sealed-dummy"
 TOKEN="astromesh.tamper=1"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "${HERE}/lib-swtpm.sh"
+source "${HERE}/lib-esp.sh"
 
-qemu-img resize "${IMAGE}" +3G >/dev/null
 OVMF_CODE=""; for c in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd /usr/share/ovmf/OVMF.fd; do [ -f "$c" ] && { OVMF_CODE="$c"; break; }; done
 OVMF_VARS_SRC=""; for v in /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd; do [ -f "$v" ] && { OVMF_VARS_SRC="$v"; break; }; done
 [ -n "${OVMF_CODE}" ] && [ -n "${OVMF_VARS_SRC}" ] || { echo "[tpm] FAIL: OVMF not found"; exit 1; }
+
+# Enable an interruptible systemd-boot menu + cmdline editor on the image's ESP so boot 2's
+# pexpect driver can append a token to the kernel cmdline (changing PCR 11). Set on the RAW
+# (losetup, no nbd) then convert to the persistent qcow2 shared by both boots.
+esp_set_loader_timeout "${RAW}" 20
+qemu-img convert -O qcow2 "${RAW}" "${IMAGE}"
+qemu-img resize "${IMAGE}" +3G >/dev/null
 cp "${OVMF_VARS_SRC}" ovmf_vars_tpm.fd
 if [ -w /dev/kvm ]; then ACCEL="-enable-kvm"; SMP=2; else ACCEL="-accel tcg,thread=multi"; SMP=4; fi
 
@@ -42,12 +50,23 @@ until grep -aq '\[seal\] UNSEAL OK' tpm-console1.log; do
     sleep 3
 done
 grep -aq '\[seal\] SEALED OK' tpm-console1.log || { echo "[tpm] FAIL: never sealed on first boot"; exit 1; }
-curl -fsS "http://localhost:${PORT}/v1/health" >/dev/null 2>&1 || { echo "[tpm] FAIL: astromeshd health not 200 with unsealed key"; exit 1; }
+# astromeshd starts right after the unseal completes, so poll health (don't race it with a
+# single curl): the unsealed key must let it come up 200.
+health_deadline=$(( $(date +%s) + 60 ))
+until curl -fsS "http://localhost:${PORT}/v1/health" >/dev/null 2>&1; do
+    [ "$(date +%s)" -ge "${health_deadline}" ] && { echo "[tpm] FAIL: astromeshd health not 200 with unsealed key"; tail -n 60 tpm-console1.log; exit 1; }
+    sleep 2
+done
 echo "[tpm] PASS: sealed + unsealed under intact boot; astromeshd healthy"
 kill ${QPID} 2>/dev/null || true; wait ${QPID} 2>/dev/null || true
 
-# --- Boot 2: same disk + same swtpm, tampered cmdline -> PCR 11 differs -> unseal must fail ---
+# --- Boot 2: same TPM state + tampered cmdline -> PCR 12 differs -> unseal must fail ---
+# (Appending a kernel arg via the systemd-boot editor changes the runtime cmdline measured into
+#  PCR 12; PCR 11 — the embedded UKI sections — is unchanged. The seal is bound to PCR 11+12.)
+# QEMU shut the boot-1 swtpm down on exit; relaunch it from the SAME state dir (owner seed
+# preserved, so the sealed blob still loads; PCRs reset and are re-measured by this boot).
 echo "[tpm] boot 2: tampered cmdline (${TOKEN}); unseal must be denied"
+swtpm_launch
 cp "${OVMF_VARS_SRC}" ovmf_vars_tpm2.fd
 python3 "${HERE}/tpm-tamper-driver.py" "${IMAGE}" "${OVMF_CODE}" ovmf_vars_tpm2.fd "$(pwd)/swtpm-state/swtpm.sock" "${TOKEN}"
 echo "[tpm] PASS: secret withheld under tampered boot"

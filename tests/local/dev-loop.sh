@@ -190,8 +190,9 @@ case "${TARGET}" in
     python3 -c 'import pexpect' 2>/dev/null || apt-get install -y python3-pexpect
     build_v 1 "ASTROMESH_SEAL_SECRET=1"   # sealed-secret model: no baked key
     cd "${WORKDIR}"
-    qemu-img convert -O qcow2 "mkosi.output/${IMAGE_ID}_1.raw" tpm.qcow2
-    bash tests/boot/tpm-seal-and-assert.sh tpm.qcow2
+    # The gate enables the boot menu on the ESP and converts to qcow2 itself (it needs the raw
+    # for losetup), so pass the raw image directly.
+    bash tests/boot/tpm-seal-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
   clean)

@@ -97,7 +97,6 @@ jobs:
           kill "$(cat $D/pid)" 2>/dev/null || true
       - name: Enable KVM access
         run: sudo chmod 666 /dev/kvm 2>/dev/null || echo "no kvm; TCG fallback"
-      - name: Convert image to qcow2
-        run: qemu-img convert -O qcow2 image/v1.raw tpm.qcow2
       - name: Run TPM seal gate
-        run: sudo bash tests/boot/tpm-seal-and-assert.sh tpm.qcow2
+        # The gate enables the boot menu on the ESP (losetup, needs root) and converts to qcow2 itself.
+        run: sudo bash tests/boot/tpm-seal-and-assert.sh image/v1.raw
