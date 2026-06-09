@@ -1,9 +1,10 @@
 [Unit]
 Description=Astromesh OS Fase 3.5 egress self-check (deny-by-default IP filter, fail-closed)
 # Runs BEFORE astromeshd, which Requires= this unit (see 40-egress.conf). This unit carries the SAME
-# IP filter as astromeshd, so: (1) if the filter cannot be applied, THIS unit fails to start ->
-# astromeshd's Requires= fails -> astromeshd does not start (fail-closed); (2) its own connect
-# probes exercise the real allow/deny policy.
+# IP filter as astromeshd, so: (1) its POSITIVE-BLOCK probe proves egress is actually governed — if it
+# is not (e.g. a kernel without cgroup-BPF, where systemd starts the unit WITHOUT firewalling), the
+# probe is not denied, THIS unit exits non-zero -> astromeshd's Requires= fails -> astromeshd does not
+# start (fail-closed); (2) its own connect probes exercise the real allow/deny policy.
 Before=astromeshd.service
 
 [Service]

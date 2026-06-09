@@ -31,7 +31,9 @@ finally:
 PY
 }
 
-# 1. POLICY-ACTIVE: astromeshd carries a non-empty IPAddressDeny.
+# 1. POLICY-ACTIVE: astromeshd carries a non-empty IPAddressDeny. This proves the policy is MERGED
+#    into the unit config, not that the kernel installed the BPF filter — POSITIVE-BLOCK (step 3)
+#    proves actual enforcement.
 deny=$(systemctl show astromeshd.service -p IPAddressDeny --value 2>/dev/null || echo "")
 if [ -n "${deny}" ]; then
     log "POLICY-ACTIVE OK (astromeshd IPAddressDeny=${deny})"
