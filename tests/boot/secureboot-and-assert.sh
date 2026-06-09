@@ -58,8 +58,7 @@ kill ${QPID} 2>/dev/null || true; wait ${QPID} 2>/dev/null || true
 
 # --- Boot 2: negative — corrupt the signed UKI; the firmware must refuse it ---
 echo "[secureboot] boot 2: byte-flipped UKI must be rejected by the firmware"
-qemu-img convert -O raw "${RAW}" sb-bad.raw
-esp_set_secureboot_enroll "sb-bad.raw"   # keep loader.conf consistent with the good disk
+qemu-img convert -O raw "${RAW}" sb-bad.raw   # RAW already has secure-boot-enroll staged
 esp_flip_uki_byte "sb-bad.raw"
 qemu-img convert -O qcow2 sb-bad.raw sb-bad.qcow2
 qemu-img resize sb-bad.qcow2 +3G >/dev/null
@@ -82,5 +81,15 @@ while [ "$(date +%s)" -lt "${deadline}" ]; do
     sleep 3
 done
 kill ${QPID2} 2>/dev/null || true; wait ${QPID2} 2>/dev/null || true
-echo "[secureboot] PASS: corrupted UKI was rejected (never reached health)"
+# Absence-of-health alone is vacuous (a corrupted UKI fails to boot for many reasons). Require a
+# POSITIVE signal that the FIRMWARE rejected the image for a Secure Boot signature failure.
+if grep -aiqE 'security violation|secure boot|verification fail|failed.*verif|access denied|image not (authentic|loaded)|hash .* not (found|allowed)' sb-console2.log; then
+    echo "[secureboot] PASS: firmware emitted a Secure Boot rejection for the corrupted UKI"
+else
+    echo "[secureboot] FAIL: corrupted UKI did not reach health, but no Secure Boot rejection"
+    echo "                   message was found — cannot confirm SB enforcement (vacuous)."
+    echo "----- sb-console2 tail (look for the firmware's actual rejection wording) -----"
+    sed 's/\x1b\[[0-9;]*m//g' sb-console2.log | tail -n 60
+    exit 1
+fi
 echo "[secureboot] SECUREBOOT GATE PASSED"

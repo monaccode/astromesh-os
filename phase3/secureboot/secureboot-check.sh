@@ -12,8 +12,8 @@ if [ ! -e "${SBVAR}" ]; then
     log "SB-DISABLED (no SecureBoot EFI var — booted on non-SB firmware; not a failure)"
     exit 0
 fi
-# Last byte of the var is the value.
-val=$(od -An -tu1 "${SBVAR}" 2>/dev/null | tr -s ' ' '\n' | grep -E '.' | tail -1)
+# The var is 4 attribute bytes + 1 value byte; read exactly byte index 4 (the value).
+val=$(od -An -tu1 -j4 -N1 "${SBVAR}" 2>/dev/null | tr -d ' \n')
 log "SecureBoot efivar value=${val:-?}"
 if [ "${val}" = "1" ]; then
     log "SB-ENABLED OK"

@@ -51,8 +51,13 @@ esp_flip_uki_byte() {
     mount "${loop}p1" "${mnt}"
     uki=$(find "${mnt}/EFI/Linux" -maxdepth 1 -name '*.efi' 2>/dev/null | head -1)
     [ -n "${uki}" ] || { echo "[lib-esp] FAIL: no UKI under EFI/Linux on ${img}" >&2; return 1; }
-    # Flip one byte at offset 1 MiB (well inside the hashed PE body / .linux section).
-    printf '\x01' | dd of="${uki}" bs=1 seek=1048576 count=1 conv=notrunc status=none
+    # Flip one byte at offset 1 MiB (well inside the hashed PE body / .linux section). XOR the
+    # existing byte with 0xff so the change is guaranteed regardless of its current value (a fixed
+    # \x01 would be a no-op if the byte already were 0x01, leaving the signature valid).
+    local orig flipped
+    orig=$(od -An -tx1 -j1048576 -N1 "${uki}" | tr -d ' \n')
+    flipped=$(printf '%02x' $(( 0x${orig} ^ 0xff )))
+    printf "\\x${flipped}" | dd of="${uki}" bs=1 seek=1048576 count=1 conv=notrunc status=none
     sync
     echo "[lib-esp] flipped one byte in ${uki##*/} on ${img}"
 }
