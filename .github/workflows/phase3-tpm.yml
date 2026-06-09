@@ -1,0 +1,103 @@
+name: phase3-tpm
+
+on:
+  push:
+    branches: [feat/phase3.3-tpm]
+  workflow_dispatch:
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-24.04
+    container: debian:trixie
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - id: pin
+        run: |
+          . runtime.pin
+          echo "ref=${ASTROMESH_REF}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: monaccode/astromesh
+          ref: ${{ steps.pin.outputs.ref }}
+          path: _runtime
+      - name: Install build deps
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-venv python3-pip git curl ca-certificates build-essential
+      - name: Install nfpm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          url=$(curl -sfL -H "Authorization: Bearer ${GH_TOKEN}" \
+              https://api.github.com/repos/goreleaser/nfpm/releases/latest \
+            | python3 -c "import sys,json; a=json.load(sys.stdin)['assets']; print(next(x['browser_download_url'] for x in a if x['name'].endswith('_amd64.deb')))")
+          curl -sfL "$url" -o nfpm.deb
+          apt-get install -y ./nfpm.deb
+      - name: Build .deb
+        working-directory: _runtime/astromesh-node
+        run: bash packaging/build-deb.sh
+      - run: mkdir -p dist && cp _runtime/astromesh-node/dist/astromesh-node_*_amd64.deb dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astromesh-deb
+          path: dist/*.deb
+
+  build-image:
+    needs: build-deb
+    runs-on: ubuntu-24.04
+    container:
+      image: debian:trixie
+      options: --privileged
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: astromesh-deb
+          path: dist
+      - name: Install mkosi + image tools
+        run: |
+          apt-get update
+          apt-get install -y mkosi systemd-ukify systemd-boot mtools dosfstools ca-certificates
+      - name: Build image (sealed-secret model)
+        env:
+          PHASE0_MODE: stub
+          ASTROMESH_SEAL_SECRET: "1"
+        run: mkosi --image-version=1 build
+      - run: mkdir -p out && cp mkosi.output/astromesh-os-phase0_1.raw out/v1.raw
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase3-tpm-image
+          path: out/v1.raw
+
+  tpm-seal-gate:
+    needs: build-image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: phase3-tpm-image
+          path: image
+      - name: Install QEMU + OVMF + swtpm + pexpect
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm swtpm-tools python3-pexpect curl
+      - name: TPM AES capability probe (diagnostic — does this runner's libtpms have AES?)
+        run: |
+          D=$(mktemp -d); swtpm_setup --tpmstate "$D" --tpm2 --pcr-banks sha256 --overwrite >/dev/null 2>&1 || true
+          swtpm socket --tpmstate "dir=$D" --ctrl "type=unixio,path=$D/sock" --tpm2 --flags startup-clear --daemon --pid "file=$D/pid"
+          sleep 1
+          TPM2TOOLS_TCTI="swtpm:path=$D/sock" tpm2_getcap algorithms 2>/dev/null | grep -iE 'cfb|aes' && echo "AES/CFB present" || echo "WARNING: no AES/CFB (gate will fail at seal)"
+          kill "$(cat $D/pid)" 2>/dev/null || true
+      - name: Enable KVM access
+        run: sudo chmod 666 /dev/kvm 2>/dev/null || echo "no kvm; TCG fallback"
+      - name: Convert image to qcow2
+        run: qemu-img convert -O qcow2 image/v1.raw tpm.qcow2
+      - name: Run TPM seal gate
+        run: sudo bash tests/boot/tpm-seal-and-assert.sh tpm.qcow2
