@@ -180,6 +180,19 @@ case "${TARGET}" in
     bash tests/boot/confine-and-assert.sh confine.qcow2
     ;;
 
+  tpm)
+    require_kvm; sync_src; ensure_deb
+    # Same stale-server guard as noshell/confine: a leftover :HTTP_PORT server would auto-update
+    # this v1 and reboot before the seal/unseal runs.
+    pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    python3 -c 'import pexpect' 2>/dev/null || apt-get install -y python3-pexpect
+    build_v 1 "ASTROMESH_SEAL_SECRET=1"   # sealed-secret model: no baked key
+    cd "${WORKDIR}"
+    qemu-img convert -O qcow2 "mkosi.output/${IMAGE_ID}_1.raw" tpm.qcow2
+    bash tests/boot/tpm-seal-and-assert.sh tpm.qcow2
+    ;;
+
   clean)
     rm -rf "${WORKDIR}/mkosi.output" "${WORKDIR}"/*.qcow2 \
            "${WORKDIR}/ovmf_vars.fd" "${WORKDIR}/qemu-console.log" "${WORKDIR}/update-served"
@@ -187,7 +200,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | tpm | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
