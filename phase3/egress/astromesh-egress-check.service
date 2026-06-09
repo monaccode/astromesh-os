@@ -1,0 +1,22 @@
+[Unit]
+Description=Astromesh OS Fase 3.5 egress self-check (deny-by-default IP filter, fail-closed)
+# Runs BEFORE astromeshd, which Requires= this unit (see 40-egress.conf). This unit carries the SAME
+# IP filter as astromeshd, so: (1) if the filter cannot be applied, THIS unit fails to start ->
+# astromeshd's Requires= fails -> astromeshd does not start (fail-closed); (2) its own connect
+# probes exercise the real allow/deny policy.
+Before=astromeshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/astromesh-egress-check.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+# Carry the SAME IP filter as astromeshd (phase3/egress/40-egress.conf) — keep in sync. The check
+# runs under these, so its loopback (allow) and 192.0.2.1 (block) probes exercise the real policy.
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=10.0.2.0/24
+
+[Install]
+WantedBy=multi-user.target
