@@ -168,6 +168,14 @@ case "${TARGET}" in
     bash tests/boot/noshell-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw" breakglass
     ;;
 
+  confine)
+    require_kvm; sync_src; ensure_deb
+    build_v 1
+    cd "${WORKDIR}"
+    qemu-img convert -O qcow2 "mkosi.output/${IMAGE_ID}_1.raw" confine.qcow2
+    bash tests/boot/confine-and-assert.sh confine.qcow2
+    ;;
+
   clean)
     rm -rf "${WORKDIR}/mkosi.output" "${WORKDIR}"/*.qcow2 \
            "${WORKDIR}/ovmf_vars.fd" "${WORKDIR}/qemu-console.log" "${WORKDIR}/update-served"
@@ -175,7 +183,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
