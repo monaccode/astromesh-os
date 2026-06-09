@@ -1,8 +1,10 @@
 [Unit]
 Description=Astromesh OS Fase 3.4 sandbox self-check (seccomp + namespaces, fail-closed)
-# Run after the daemon it inspects is up (mirror of confine-check.service).
-After=multi-user.target astromeshd.service
-Wants=astromeshd.service
+# Runs BEFORE astromeshd, which Requires= this unit (see 30-sandbox.conf). This unit carries the
+# SAME hardening directives as astromeshd, so: (1) if the sandbox cannot be applied, THIS unit
+# fails to start -> astromeshd's Requires= fails -> astromeshd does not start (fail-closed);
+# (2) inspecting our own /proc/self/status is a faithful proxy for astromeshd's confinement.
+Before=astromeshd.service
 
 [Service]
 Type=oneshot
@@ -10,8 +12,9 @@ ExecStart=/usr/lib/astromesh-os/astromesh-sandbox-check.sh
 StandardOutput=journal+console
 StandardError=journal+console
 RemainAfterExit=yes
-# Carry the SAME hardening as astromeshd so this unit's own POSITIVE-BLOCK (the unshare attempt)
-# exercises the real sandbox profile. Keep in sync with phase3/sandbox/30-sandbox.conf.
+# Carry the SAME hardening as astromeshd (phase3/sandbox/30-sandbox.conf) — keep in sync. The
+# check runs under these, so its /proc/self/status read and its RestrictAddressFamilies
+# positive-block exercise the real sandbox profile.
 NoNewPrivileges=yes
 SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
@@ -21,6 +24,13 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectControlGroups=yes
+PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target
