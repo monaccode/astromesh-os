@@ -25,7 +25,7 @@ done
 # boot_role <role> <node_id> <expect_services_jq> : boots a fresh copy of the disk with the role's
 # machine-config, asserts /v1/status services + the APPLIED marker, then powers off.
 boot_role() {
-    local role="$1" node="$2" jq_expect="$3"
+    local role="$1" node="$2" expect_has="$3" expect_not="$4"
     local cfg disk vars con
     cfg=$(smbios_machine_config "$(printf 'profile: %s\nnode_id: %s\n' "${role}" "${node}")")
     disk="mcfg-${role}.qcow2"; vars="ovmf_vars_${role}.fd"; con="mcfg-${role}-console.log"
@@ -50,21 +50,29 @@ boot_role() {
         fi
         sleep 3
     done
-    # (a) role applied: the runtime loaded the rendered profile -> /v1/status services match.
-    local status; status=$(curl -fsS "http://localhost:${PORT}/v1/status" 2>/dev/null || echo '{}')
-    if ! printf '%s' "${status}" | python3 -c "import sys,json; d=json.load(sys.stdin); s=d.get('services',{}); sys.exit(0 if (${jq_expect}) else 1)" 2>/dev/null; then
-        echo "[mcfg] FAIL: ${role}: /v1/status services did not match the expected profile"; echo "  status=${status}"; tail -n 60 "${con}"; return 1
+    # (a) role applied: the runtime CONSUMED the rendered profile. The daemon logs its profile-derived
+    #     "Enabled services: ..." line to the console at startup — a version-independent proof (no HTTP
+    #     status endpoint is relied on). worker enables `agents` (not `channels`); gateway the reverse.
+    local svc; svc=$(grep -aoE 'Enabled services: .*' "${con}" | tail -1 | tr -d '\r')
+    if [ -z "${svc}" ]; then
+        echo "[mcfg] FAIL: ${role}: no 'Enabled services' line — runtime did not load a profile"; tail -n 80 "${con}"; return 1
+    fi
+    if ! printf '%s' "${svc}" | grep -qw "${expect_has}"; then
+        echo "[mcfg] FAIL: ${role}: '${svc}' is missing expected service '${expect_has}'"; tail -n 40 "${con}"; return 1
+    fi
+    if printf '%s' "${svc}" | grep -qw "${expect_not}"; then
+        echo "[mcfg] FAIL: ${role}: '${svc}' unexpectedly enables '${expect_not}' (wrong profile?)"; tail -n 40 "${con}"; return 1
     fi
     # (b) identity + profile self-report marker.
     if ! grep -aq "mcfg\] APPLIED profile=${role} node=${node}" "${con}"; then
         echo "[mcfg] FAIL: ${role}: APPLIED marker absent"; grep -aE 'mcfg\]' "${con}" | tail; return 1
     fi
-    echo "[mcfg] PASS: ${role}: profile loaded (services match) + identity applied"
+    echo "[mcfg] PASS: ${role}: profile loaded (${svc}) + identity applied"
     kill ${qpid} 2>/dev/null || true; wait ${qpid} 2>/dev/null || true
     trap - RETURN
 }
 
-# worker: agents true, channels false.  gateway: channels true, agents false.
-boot_role worker  node-a  "s.get('agents') is True and s.get('channels') is False"
-boot_role gateway node-b  "s.get('channels') is True and s.get('agents') is False"
+# worker enables agents (not channels); gateway enables channels (not agents).
+boot_role worker  node-a  agents   channels
+boot_role gateway node-b  channels agents
 echo "[mcfg] MACHINECONFIG GATE PASSED"
