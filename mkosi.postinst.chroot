@@ -240,4 +240,14 @@ install -m 0755 "${SRC}/phase3/secureboot/secureboot-check.sh" /usr/lib/astromes
 install -m 0644 "${SRC}/phase3/secureboot/secureboot-check.service" /etc/systemd/system/secureboot-check.service
 systemctl enable secureboot-check.service
 
+# Fase 4.1: declarative machine-config (profile + identity via SMBIOS credential). The oneshot renders
+# the chosen profile to /run/astromesh/config and the launcher points astromeshd there; absent a
+# machine-config the launcher falls back to the baked /etc/astromesh (Fase 0/2/3 behavior unchanged).
+install -m 0755 "${SRC}/phase4/machineconfig/astromesh-machine-config.sh" /usr/lib/astromesh-os/astromesh-machine-config.sh
+install -m 0755 "${SRC}/phase4/machineconfig/astromeshd-config-launch.sh" /usr/lib/astromesh-os/astromeshd-config-launch.sh
+install -m 0644 "${SRC}/phase4/machineconfig/astromesh-machine-config.service" /etc/systemd/system/astromesh-machine-config.service
+install -d /etc/systemd/system/astromeshd.service.d
+install -m 0644 "${SRC}/phase4/machineconfig/15-machine-config.conf" /etc/systemd/system/astromeshd.service.d/15-machine-config.conf
+systemctl enable astromesh-machine-config.service
+
 echo "[postinst] done (mode=${MODE})"
