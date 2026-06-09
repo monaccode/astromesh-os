@@ -194,6 +194,17 @@ case "${TARGET}" in
     bash tests/boot/sandbox-and-assert.sh sandbox.qcow2
     ;;
 
+  egress)
+    require_kvm; sync_src; ensure_deb
+    # Same stale-server guard as sandbox/confine: a leftover :HTTP_PORT server would auto-update this
+    # v1 and reboot before the egress self-check runs.
+    pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
+    build_v 1
+    cd "${WORKDIR}"
+    qemu-img convert -O qcow2 "mkosi.output/${IMAGE_ID}_1.raw" egress.qcow2
+    bash tests/boot/egress-and-assert.sh egress.qcow2
+    ;;
+
   secureboot)
     require_kvm; sync_src; ensure_deb
     pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
@@ -226,7 +237,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | secureboot | tpm | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | tpm | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
