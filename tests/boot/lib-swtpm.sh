@@ -6,6 +6,13 @@ SWTPM_DIR=""
 swtpm_start() {                 # $1 = state dir (created if missing)
     SWTPM_DIR="$1"
     mkdir -p "${SWTPM_DIR}"
+    # Manufacture the TPM state (EK/SRK + full algorithm profile incl. AES-CFB, which
+    # systemd-creds requires for its encrypted TPM sessions). A bare `swtpm socket` on an
+    # un-set-up state dir is rejected by systemd-creds ("AES-128-CFB missing"). Needs the
+    # swtpm-tools package (swtpm_setup). --overwrite re-inits so reruns are clean.
+    if command -v swtpm_setup >/dev/null 2>&1; then
+        swtpm_setup --tpmstate "${SWTPM_DIR}" --tpm2 --pcr-banks sha256 --overwrite >/dev/null 2>&1 || true
+    fi
     swtpm socket --tpmstate "dir=${SWTPM_DIR}" \
         --ctrl "type=unixio,path=${SWTPM_DIR}/swtpm.sock" \
         --tpm2 --flags startup-clear --daemon --pid "file=${SWTPM_DIR}/swtpm.pid"

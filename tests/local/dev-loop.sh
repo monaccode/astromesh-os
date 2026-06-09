@@ -186,6 +186,7 @@ case "${TARGET}" in
     # this v1 and reboot before the seal/unseal runs.
     pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
     command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    command -v swtpm_setup >/dev/null 2>&1 || apt-get install -y swtpm-tools
     python3 -c 'import pexpect' 2>/dev/null || apt-get install -y python3-pexpect
     build_v 1 "ASTROMESH_SEAL_SECRET=1"   # sealed-secret model: no baked key
     cd "${WORKDIR}"
