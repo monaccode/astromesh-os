@@ -22,7 +22,8 @@ profile astromeshd {
   /var/lib/astromesh/{,**} rwk,
   /var/log/astromesh/{,**} rwk,
 
-  # Network: bind :8000 and egress to the provider.
+  # Network: bind :8000 and egress to the provider. TCP only; DNS (UDP) resolution is
+  # covered by abstractions/nameservice above — do not drop that include or egress breaks.
   network inet stream,
   network inet6 stream,
 

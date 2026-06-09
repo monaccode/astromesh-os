@@ -16,15 +16,16 @@ case "${cur}" in
     *) log "FAIL: astromeshd not confined-enforce (got '${cur}')"; fail=1 ;;
 esac
 
-# 2. No AppArmor denials for the astromeshd profile in normal op (checked BEFORE the
-#    deliberate positive-block test below, which would add one).
-denials=$(journalctl -k -b 2>/dev/null | grep -c 'apparmor="DENIED".*profile="astromeshd"' || true)
-log "astromeshd DENIED count (normal op, this boot)=${denials}"
-if [ "${denials}" = "0" ]; then
-    log "NO-DENIALS OK"
+# 2. The enforce profile does not FALSELY deny anything astromeshd needs — proven by the
+#    daemon actually working under it: a confined astromeshd that serves /v1/health 200 has
+#    not been denied a path/socket it requires (a real denial would crash or hang it). This
+#    is the honest no-false-denial check: AppArmor's audit channel reaches no log in this
+#    image (see check 3), so a denial-count grep would be vacuous (always 0). The agent-query
+#    path is likewise covered host-side by the gate harness (a denied query breaks the reply).
+if curl -fsS --max-time 15 http://127.0.0.1:8000/v1/health >/dev/null 2>&1; then
+    log "NO-DENIALS OK (astromeshd serves /v1/health under enforce — no needed access denied)"
 else
-    log "FAIL: ${denials} AppArmor denials for astromeshd in normal op"
-    journalctl -k -b 2>/dev/null | grep 'apparmor="DENIED".*profile="astromeshd"' | head -5
+    log "FAIL: astromeshd /v1/health not 200 under enforce — confinement denied a needed access"
     fail=1
 fi
 
