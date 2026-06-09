@@ -159,12 +159,18 @@ systemctl enable immutability-check.service
 if [ "${ASTROMESH_BREAK_HEALTH:-0}" = "1" ]; then
     echo "[postinst] ASTROMESH_BREAK_HEALTH=1 → astromeshd active but health-dead (rollback gate)"
     install -d /etc/systemd/system/astromeshd.service.d
+    # AppArmorProfile= (empty) resets the Fase 3.2 confinement (20-apparmor.conf, applied
+    # earlier lexically) for this test-only stub: the astromeshd profile only permits the
+    # venv python3, so it would deny exec of /usr/bin/sleep and the stub would fail to start
+    # — collapsing the target isolation the rollback gate depends on. The broken-v2 is a test
+    # artifact, so running its stub unconfined is fine.
     cat > /etc/systemd/system/astromeshd.service.d/99-break-health.conf <<'BRK'
 [Service]
 Type=exec
 ExecStart=
 ExecStart=/usr/bin/sleep infinity
 Restart=no
+AppArmorProfile=
 BRK
 fi
 
