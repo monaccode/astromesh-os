@@ -191,6 +191,16 @@ case "${TARGET}" in
     bash tests/boot/sandbox-and-assert.sh sandbox.qcow2
     ;;
 
+  secureboot)
+    require_kvm; sync_src; ensure_deb
+    pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
+    build_v 1
+    cd "${WORKDIR}"
+    # The gate stages secure-boot-enroll on the ESP and converts to qcow2 itself (needs the raw for
+    # losetup), so pass the raw image directly.
+    bash tests/boot/secureboot-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   tpm)
     require_kvm; sync_src; ensure_deb
     # Same stale-server guard as noshell/confine: a leftover :HTTP_PORT server would auto-update
@@ -213,7 +223,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | tpm | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | secureboot | tpm | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"

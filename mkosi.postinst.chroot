@@ -227,4 +227,9 @@ install -m 0755 "${SRC}/phase3/sandbox/astromesh-sandbox-check.sh" /usr/lib/astr
 install -m 0644 "${SRC}/phase3/sandbox/astromesh-sandbox-check.service" /etc/systemd/system/astromesh-sandbox-check.service
 systemctl enable astromesh-sandbox-check.service
 
+# Fase 3.6: Secure Boot self-check (emits SB-ENABLED OK under SB; degraded log under non-SB).
+install -m 0755 "${SRC}/phase3/secureboot/secureboot-check.sh" /usr/lib/astromesh-os/secureboot-check.sh
+install -m 0644 "${SRC}/phase3/secureboot/secureboot-check.service" /etc/systemd/system/secureboot-check.service
+systemctl enable secureboot-check.service
+
 echo "[postinst] done (mode=${MODE})"

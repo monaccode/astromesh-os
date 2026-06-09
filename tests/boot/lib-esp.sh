@@ -22,3 +22,37 @@ EOF
     sync
     echo "[lib-esp] set loader timeout=${secs}s editor=yes on ${img}"
 }
+
+# Force unattended Secure Boot key auto-enrollment: systemd-boot only auto-enrolls staged keys
+# without a prompt when loader.conf has `secure-boot-enroll force`. Operates on the raw image's
+# ESP (partition 1). Usage: esp_set_secureboot_enroll <raw-image>
+esp_set_secureboot_enroll() {
+    local img="$1" loop mnt
+    loop=$(losetup --show -fP "${img}")
+    mnt=$(mktemp -d)
+    trap 'umount "${mnt}" 2>/dev/null || true; rmdir "${mnt}" 2>/dev/null || true; losetup -d "${loop}" 2>/dev/null || true; trap - RETURN' RETURN
+    mount "${loop}p1" "${mnt}"
+    mkdir -p "${mnt}/loader"
+    # Append idempotently; do not clobber timeout/editor lines a prior helper may have written.
+    grep -q '^secure-boot-enroll' "${mnt}/loader/loader.conf" 2>/dev/null \
+        || echo "secure-boot-enroll force" >> "${mnt}/loader/loader.conf"
+    sync
+    echo "[lib-esp] set secure-boot-enroll force on ${img}"
+}
+
+# Corrupt the signed UKI so its Authenticode signature no longer validates: flip one byte deep in
+# the .efi payload (offset 1 MiB is well inside the hashed PE body, not in the Authenticode-excluded
+# checksum/cert-table fields). Usage: esp_flip_uki_byte <raw-image>
+esp_flip_uki_byte() {
+    local img="$1" loop mnt uki
+    loop=$(losetup --show -fP "${img}")
+    mnt=$(mktemp -d)
+    trap 'umount "${mnt}" 2>/dev/null || true; rmdir "${mnt}" 2>/dev/null || true; losetup -d "${loop}" 2>/dev/null || true; trap - RETURN' RETURN
+    mount "${loop}p1" "${mnt}"
+    uki=$(find "${mnt}/EFI/Linux" -maxdepth 1 -name '*.efi' 2>/dev/null | head -1)
+    [ -n "${uki}" ] || { echo "[lib-esp] FAIL: no UKI under EFI/Linux on ${img}" >&2; return 1; }
+    # Flip one byte at offset 1 MiB (well inside the hashed PE body / .linux section).
+    printf '\x01' | dd of="${uki}" bs=1 seek=1048576 count=1 conv=notrunc status=none
+    sync
+    echo "[lib-esp] flipped one byte in ${uki##*/} on ${img}"
+}
