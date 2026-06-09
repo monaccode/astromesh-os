@@ -180,6 +180,17 @@ case "${TARGET}" in
     bash tests/boot/confine-and-assert.sh confine.qcow2
     ;;
 
+  sandbox)
+    require_kvm; sync_src; ensure_deb
+    # Same stale-server guard as confine/tpm: a leftover :HTTP_PORT server would auto-update this
+    # v1 and reboot before the sandbox self-check runs.
+    pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
+    build_v 1
+    cd "${WORKDIR}"
+    qemu-img convert -O qcow2 "mkosi.output/${IMAGE_ID}_1.raw" sandbox.qcow2
+    bash tests/boot/sandbox-and-assert.sh sandbox.qcow2
+    ;;
+
   tpm)
     require_kvm; sync_src; ensure_deb
     # Same stale-server guard as noshell/confine: a leftover :HTTP_PORT server would auto-update
@@ -202,7 +213,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | tpm | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | tpm | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"

@@ -219,4 +219,12 @@ install -d /etc/systemd/system/astromeshd.service.d
 install -m 0644 "${SRC}/phase3/tpm/10-sealed-env.conf" /etc/systemd/system/astromeshd.service.d/10-sealed-env.conf
 systemctl enable astromesh-seal-secret.service astromesh-unseal-secret.service
 
+# Fase 3.4: E-MVP sandbox. Harden astromeshd at the syscall+namespace+privilege level and
+# install the fail-closed self-check. Additive to the 3.2 AppArmor profile and 3.3 unseal.
+install -d /etc/systemd/system/astromeshd.service.d
+install -m 0644 "${SRC}/phase3/sandbox/30-sandbox.conf" /etc/systemd/system/astromeshd.service.d/30-sandbox.conf
+install -m 0755 "${SRC}/phase3/sandbox/astromesh-sandbox-check.sh" /usr/lib/astromesh-os/astromesh-sandbox-check.sh
+install -m 0644 "${SRC}/phase3/sandbox/astromesh-sandbox-check.service" /etc/systemd/system/astromesh-sandbox-check.service
+systemctl enable astromesh-sandbox-check.service
+
 echo "[postinst] done (mode=${MODE})"

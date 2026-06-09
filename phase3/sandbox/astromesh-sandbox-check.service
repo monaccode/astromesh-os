@@ -1,0 +1,26 @@
+[Unit]
+Description=Astromesh OS Fase 3.4 sandbox self-check (seccomp + namespaces, fail-closed)
+# Run after the daemon it inspects is up (mirror of confine-check.service).
+After=multi-user.target astromeshd.service
+Wants=astromeshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/astromesh-sandbox-check.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+# Carry the SAME hardening as astromeshd so this unit's own POSITIVE-BLOCK (the unshare attempt)
+# exercises the real sandbox profile. Keep in sync with phase3/sandbox/30-sandbox.conf.
+NoNewPrivileges=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target
