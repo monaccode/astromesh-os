@@ -52,7 +52,7 @@ boot_role() {
     done
     # (a) role applied: the runtime loaded the rendered profile -> /v1/status services match.
     local status; status=$(curl -fsS "http://localhost:${PORT}/v1/status" 2>/dev/null || echo '{}')
-    if ! printf '%s' "${status}" | /opt/astromesh/venv/bin/python3 -c "import sys,json; d=json.load(sys.stdin); s=d.get('services',{}); sys.exit(0 if (${jq_expect}) else 1)" 2>/dev/null; then
+    if ! printf '%s' "${status}" | python3 -c "import sys,json; d=json.load(sys.stdin); s=d.get('services',{}); sys.exit(0 if (${jq_expect}) else 1)" 2>/dev/null; then
         echo "[mcfg] FAIL: ${role}: /v1/status services did not match the expected profile"; echo "  status=${status}"; tail -n 60 "${con}"; return 1
     fi
     # (b) identity + profile self-report marker.
