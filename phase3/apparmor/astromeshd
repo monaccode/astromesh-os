@@ -1,0 +1,32 @@
+# AppArmor profile for the Astromesh agent runtime daemon (Fase 3.2).
+# Named profile, attached to astromeshd.service via AppArmorProfile=astromeshd (systemd
+# drop-in). Deny-by-default. Ships in complain mode; Task 6 flips it to enforce (removes
+# flags=(complain)) once the denial hunt over the health + agent paths is clean.
+#include <tunables/global>
+
+profile astromeshd flags=(complain) {
+  #include <abstractions/base>
+  #include <abstractions/python>
+  #include <abstractions/nameservice>
+
+  # The venv interpreter (read + execute, inherit this profile) and its tree.
+  /opt/astromesh/venv/bin/python3* mrix,
+  /opt/astromesh/venv/** r,
+  /opt/astromesh/venv/**.so* mr,
+
+  # Config (read-only): agents, .env, providers.
+  /etc/astromesh/{,**} r,
+
+  # Writable state — the ONLY writable paths.
+  /var/lib/astromesh/{,**} rwk,
+  /var/log/astromesh/{,**} rwk,
+
+  # Network: bind :8000 and egress to the provider.
+  network inet stream,
+  network inet6 stream,
+
+  # Common runtime reads (extend from the complain-mode denials in Task 6, do not pre-allow blindly).
+  /proc/sys/kernel/random/uuid r,
+  @{PROC}/@{pid}/stat r,
+  owner @{PROC}/@{pid}/fd/ r,
+}
