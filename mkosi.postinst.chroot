@@ -184,4 +184,16 @@ install -m 0755 "${SRC}/phase3/astromesh-hardening-check.sh" /usr/lib/astromesh-
 install -m 0644 "${SRC}/phase3/astromesh-hardening-check.service" /etc/systemd/system/astromesh-hardening-check.service
 systemctl enable astromesh-hardening-check.service
 
+# Fase 3.2: AppArmor confinement for astromeshd.
+install -d /etc/apparmor.d
+install -m 0644 "${SRC}/phase3/apparmor/astromeshd" /etc/apparmor.d/astromeshd
+install -d /etc/systemd/system/astromeshd.service.d
+install -m 0644 "${SRC}/phase3/apparmor/20-apparmor.conf" /etc/systemd/system/astromeshd.service.d/20-apparmor.conf
+# apparmor.service loads /etc/apparmor.d/* into the kernel at boot.
+systemctl enable apparmor.service
+# In-guest confinement self-check (asserts confined+no-denials+positive-block at boot).
+install -m 0755 "${SRC}/phase3/apparmor/confine-check.sh" /usr/lib/astromesh-os/confine-check.sh
+install -m 0644 "${SRC}/phase3/apparmor/confine-check.service" /etc/systemd/system/confine-check.service
+systemctl enable confine-check.service
+
 echo "[postinst] done (mode=${MODE})"
