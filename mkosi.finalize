@@ -33,14 +33,20 @@ if [ -n "${ASTROMESH_BREAKGLASS_HASH:-}" ]; then
     python3 - "${ROOT}/etc/shadow" "${ASTROMESH_BREAKGLASS_HASH}" <<'PY'
 import sys
 path, h = sys.argv[1], sys.argv[2]
-lines = open(path).read().splitlines()
+with open(path) as fh:
+    lines = fh.read().splitlines()
+found = False
 for i, ln in enumerate(lines):
     f = ln.split(':')
     if f and f[0] == 'root':
         f[1] = h
         lines[i] = ':'.join(f)
+        found = True
         break
-open(path, 'w').write('\n'.join(lines) + '\n')
+if not found:
+    sys.exit("[finalize] FAIL: no root entry in /etc/shadow; cannot set break-glass hash")
+with open(path, 'w') as fh:
+    fh.write('\n'.join(lines) + '\n')
 PY
     echo "[finalize] break-glass: provisioned root hash set"
 else
