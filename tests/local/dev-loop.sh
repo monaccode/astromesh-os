@@ -170,6 +170,10 @@ case "${TARGET}" in
 
   confine)
     require_kvm; sync_src; ensure_deb
+    # Defensive: a stale http server on :HTTP_PORT (orphaned by a prior rollback run) is
+    # reachable from the guest at 10.0.2.2:HTTP_PORT, so this v1 image would auto-update
+    # itself and reboot before the confinement self-check runs. Kill leftovers.
+    pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
     build_v 1
     cd "${WORKDIR}"
     qemu-img convert -O qcow2 "mkosi.output/${IMAGE_ID}_1.raw" confine.qcow2
