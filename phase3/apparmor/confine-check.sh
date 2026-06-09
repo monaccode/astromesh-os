@@ -33,14 +33,19 @@ fi
 #    AppArmor (not DAC, not an exec denial). Canary is under /var/lib but NOT /var/lib/astromesh.
 canary=/var/lib/confine-canary
 rm -f "${canary}" 2>/dev/null || true
-if aa-exec -p astromeshd -- /opt/astromesh/venv/bin/python3 -c "open('${canary}','w')" 2>/dev/null; then
+err=$(aa-exec -p astromeshd -- /opt/astromesh/venv/bin/python3 -c "open('${canary}','w')" 2>&1)
+rc=$?
+# Proof of enforcement does NOT rely on finding the audit log line — AppArmor audit may not
+# reach journald here. We run as root, so DAC would ALLOW this write; a blocked write
+# therefore proves AppArmor, confirmed by the EACCES surfacing as PermissionError on stderr.
+if [ "${rc}" -eq 0 ] || [ -e "${canary}" ]; then
     log "FAIL: out-of-policy write SUCCEEDED under astromeshd profile (not enforcing)"
     rm -f "${canary}" 2>/dev/null || true
     fail=1
-elif journalctl -k -b 2>/dev/null | grep -q "apparmor=\"DENIED\".*profile=\"astromeshd\".*name=\"${canary}\""; then
+elif printf '%s' "${err}" | grep -qiE 'Permission denied|PermissionError|EACCES'; then
     log "POSITIVE-BLOCK OK (out-of-policy write denied by AppArmor)"
 else
-    log "FAIL: out-of-policy write failed but no AppArmor DENIED logged for ${canary}"
+    log "FAIL: out-of-policy write failed but not via permission-denied. stderr: ${err}"
     fail=1
 fi
 

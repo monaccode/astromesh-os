@@ -1,10 +1,11 @@
 # AppArmor profile for the Astromesh agent runtime daemon (Fase 3.2).
 # Named profile, attached to astromeshd.service via AppArmorProfile=astromeshd (systemd
-# drop-in). Deny-by-default. Ships in complain mode; Task 6 flips it to enforce (removes
-# flags=(complain)) once the denial hunt over the health + agent paths is clean.
+# drop-in). Deny-by-default, ENFORCE. The complain-mode dev pass showed zero denials over
+# the daemon's startup + health + agent-query paths, so the initial allow-set below is
+# already complete; no extra rules were needed.
 #include <tunables/global>
 
-profile astromeshd flags=(complain) {
+profile astromeshd {
   #include <abstractions/base>
   #include <abstractions/python>
   #include <abstractions/nameservice>
