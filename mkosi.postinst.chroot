@@ -66,11 +66,18 @@ else
 fi
 chown root:astromesh "${ETC}/agents/phase0-smoke.agent.yaml"
 
-# 3. Provider API key for astromeshd.service (EnvironmentFile=-/etc/astromesh/.env).
-#    Dummy in stub mode; CI passes the real OPENAI_API_KEY in real mode.
-echo "OPENAI_API_KEY=${OPENAI_API_KEY:-sk-phase0-stub-dummy}" > "${ETC}/.env"
-chmod 0640 "${ETC}/.env"
+# 3. Provider API key for astromeshd.service. When sealing (Fase 3.3, ASTROMESH_SEAL_SECRET=1)
+#    the key is NOT baked — it is provisioned at first boot and TPM-sealed (see the seal/unseal
+#    services below), so the image ships no plaintext key. Otherwise (Fase 0/2 builds) bake the
+#    dummy/real key as before so those gates keep a working key.
+install -m 0640 /dev/null "${ETC}/.env"
 chown root:astromesh "${ETC}/.env"
+if [ "${ASTROMESH_SEAL_SECRET:-0}" = "1" ]; then
+    echo "[postinst] ASTROMESH_SEAL_SECRET=1 → provider key not baked (TPM-sealed at first boot)"
+else
+    echo "OPENAI_API_KEY=${OPENAI_API_KEY:-sk-phase0-stub-dummy}" > "${ETC}/.env"
+    chmod 0640 "${ETC}/.env"; chown root:astromesh "${ETC}/.env"
+fi
 
 # 4. Stub OpenAI server + service, only in stub mode. The stub runs with the runtime
 #    venv's python (which already bundles fastapi/uvicorn), so no extra packages are
@@ -201,5 +208,15 @@ systemctl enable apparmor.service
 install -m 0755 "${SRC}/phase3/apparmor/confine-check.sh" /usr/lib/astromesh-os/confine-check.sh
 install -m 0644 "${SRC}/phase3/apparmor/confine-check.service" /etc/systemd/system/confine-check.service
 systemctl enable confine-check.service
+
+# Fase 3.3: TPM-sealed provider key (seal at first boot, unseal each boot to a tmpfs env).
+# Installed unconditionally; harmless no-ops when no TPM/credential/blob is present (Fase 0/2).
+install -m 0755 "${SRC}/phase3/tpm/astromesh-seal-secret.sh" /usr/lib/astromesh-os/astromesh-seal-secret.sh
+install -m 0755 "${SRC}/phase3/tpm/astromesh-unseal-secret.sh" /usr/lib/astromesh-os/astromesh-unseal-secret.sh
+install -m 0644 "${SRC}/phase3/tpm/astromesh-seal-secret.service" /etc/systemd/system/astromesh-seal-secret.service
+install -m 0644 "${SRC}/phase3/tpm/astromesh-unseal-secret.service" /etc/systemd/system/astromesh-unseal-secret.service
+install -d /etc/systemd/system/astromeshd.service.d
+install -m 0644 "${SRC}/phase3/tpm/10-sealed-env.conf" /etc/systemd/system/astromeshd.service.d/10-sealed-env.conf
+systemctl enable astromesh-seal-secret.service astromesh-unseal-secret.service
 
 echo "[postinst] done (mode=${MODE})"
