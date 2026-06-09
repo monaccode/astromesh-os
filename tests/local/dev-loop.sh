@@ -51,6 +51,9 @@ sync_src() {
     find "${WORKDIR}/mkosi.repart" -name '*.conf' -exec chmod 0644 {} + 2>/dev/null || true
     chmod 0644 "${WORKDIR}"/mkosi.conf 2>/dev/null || true
     chmod 0755 "${WORKDIR}/mkosi.postinst.chroot" "${WORKDIR}/mkosi.finalize" 2>/dev/null || true
+    # Fase 3.6: mkosi refuses a SecureBoot key with permissions looser than 0600 ("too open").
+    # git can't store 0600 (only 644/755), so tighten it in the WORKDIR before the build.
+    chmod 0600 "${WORKDIR}/phase3/secureboot/db.key" 2>/dev/null || true
 }
 
 ensure_deb() {
