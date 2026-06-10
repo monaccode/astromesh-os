@@ -121,4 +121,24 @@ PY
     log "otel export enabled (observability.otlp.enabled=true endpoint=127.0.0.1:4317)"
 fi
 
+# Fase 4.4: if the machine-config asks for eBPF egress accounting (ebpf_egress: true), set the runtime
+# flag so the guarded attach unit runs. Same pattern as the 4.3 otel flag.
+ebpf_egress=$(/opt/astromesh/venv/bin/python3 - "${CRED}" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1])) or {}
+print(str(d.get("ebpf_egress", "")).strip().lower())
+PY
+)
+if [ "${ebpf_egress}" = "true" ] || [ "${ebpf_egress}" = "1" ]; then
+    /opt/astromesh/venv/bin/python3 - "${RUNTIME_YAML}" <<'PY'
+import sys, yaml
+path = sys.argv[1]
+d = yaml.safe_load(open(path)) or {}
+eg = d.setdefault("spec", {}).setdefault("ebpf", {}).setdefault("egress", {})
+eg["enabled"] = True
+yaml.safe_dump(d, open(path, "w"), sort_keys=False)
+PY
+    log "ebpf egress accounting enabled (spec.ebpf.egress.enabled=true)"
+fi
+
 log "APPLIED profile=${profile} node=${node_id} hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null) OK"
