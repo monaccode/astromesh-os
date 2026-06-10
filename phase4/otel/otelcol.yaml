@@ -1,0 +1,22 @@
+# Fase 4.3 (TEST/gate config). Receives OTLP/gRPC on localhost:4317 and dumps received spans to stdout
+# (debug exporter) so the gate can assert export over the console. PRODUCTION adds a downstream `otlp`
+# exporter (fleet backend) — the render script wires it only when machine-config supplied an endpoint.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+processors:
+  batch: {}
+exporters:
+  debug:
+    verbosity: detailed
+service:
+  telemetry:
+    logs:
+      level: info
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]

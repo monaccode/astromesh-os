@@ -1,0 +1,15 @@
+[Unit]
+Description=Astromesh OS Fase 4.3 OpenTelemetry Collector sidecar (OTLP:4317 -> debug)
+After=network.target astromesh-machine-config.service
+Before=astromeshd.service
+
+[Service]
+Type=exec
+ExecStart=/usr/lib/astromesh-os/otel/otel-collector-render.sh
+Restart=on-failure
+RestartSec=2
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
