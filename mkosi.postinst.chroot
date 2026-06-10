@@ -252,4 +252,17 @@ install -m 0644 "${SRC}/phase4/machineconfig/astromesh-machine-config.service" /
 ln -sf /var/lib/astromesh/runtime.yaml "${ETC}/runtime.yaml"
 systemctl enable astromesh-machine-config.service
 
+# Fase 4.2: mesh over IPsec. Bake the cluster CA (trust anchor) and the mesh units; all are guarded
+# (no-op unless a mesh-* profile rendered runtime.yaml), so non-mesh boots are unaffected.
+install -d /usr/lib/astromesh-os/mesh
+install -m 0644 "${SRC}/phase4/mesh/ca.crt" /usr/lib/astromesh-os/mesh/ca.crt
+install -m 0600 "${SRC}/phase4/mesh/ca.key" /usr/lib/astromesh-os/mesh/ca.key   # TEST: prod issues out-of-band
+for s in mesh-cert-issue mesh-cert-unseal mesh-net swanctl-render; do
+    install -m 0755 "${SRC}/phase4/mesh/${s}.sh" "/usr/lib/astromesh-os/mesh/${s}.sh"
+done
+for u in mesh-cert-issue mesh-cert-unseal mesh-net mesh-ipsec; do
+    install -m 0644 "${SRC}/phase4/mesh/${u}.service" "/etc/systemd/system/${u}.service"
+    systemctl enable "${u}.service"
+done
+
 echo "[postinst] done (mode=${MODE})"
