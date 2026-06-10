@@ -18,6 +18,8 @@ RemainAfterExit=yes
 IPAddressDeny=any
 IPAddressAllow=localhost
 IPAddressAllow=10.0.2.0/24
+# Fase 4.2 mesh subnet (kept in sync with 40-egress.conf) — RFC1918, inert on non-mesh boots.
+IPAddressAllow=10.77.0.0/24
 
 [Install]
 WantedBy=multi-user.target

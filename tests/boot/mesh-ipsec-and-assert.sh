@@ -71,8 +71,8 @@ while :; do
     [ "${gs}" = "2" ] && [ "${ws}" = "2" ] && break
     if [ "$(date +%s)" -ge "${deadline}" ]; then
         echo "[mesh] FAIL: cluster did not form (gateway nodes=${gs}, worker nodes=${ws})"
-        echo "----- gateway mesh markers -----"; grep -aE 'mesh(:swanctl)?\]' mesh-gateway-console.log | tail -n 30
-        echo "----- worker mesh markers -----";  grep -aE 'mesh(:swanctl)?\]' mesh-worker-console.log  | tail -n 30
+        echo "----- gateway mesh markers -----"; grep -aE 'mesh(:swanctl)?\]' mesh-gateway-console.log | grep -avE "failed to load|opening directory" | tail -n 25
+        echo "----- worker mesh markers -----";  grep -aE 'mesh(:swanctl)?\]' mesh-worker-console.log  | grep -avE "failed to load|opening directory" | tail -n 25
         exit 1
     fi
     sleep 5
