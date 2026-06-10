@@ -16,6 +16,10 @@ use opentelemetry_otlp::WithExportConfig;
 
 const RT: &str = "/var/lib/astromesh/runtime.yaml";
 const ENDPOINT: &str = "http://127.0.0.1:4317";
+// The daemon's own OTLP export sink — NEVER enforce the quota on it, or the daemon would eventually
+// deny its own telemetry pipe and go blind. Kept in sync with ENDPOINT.
+const OTLP_ADDR: &str = "127.0.0.1";
+const OTLP_PORT: u16 = 4317;
 
 fn enabled() -> bool {
     let s = match fs::read_to_string(RT) {
@@ -129,7 +133,9 @@ async fn main() -> Result<()> {
             g_bytes.record(nbytes, &attrs);
             g_pkts.record(npkts, &attrs);
             // Fase 4.4e: enforcement decision — deny over-quota flows (the eBPF then drops their egress).
-            if nbytes > quota {
+            // Exempt the daemon's own telemetry sink so enforcement never blinds the observability pipe.
+            let is_own_telemetry = daddr == OTLP_ADDR && dport == OTLP_PORT;
+            if nbytes > quota && !is_own_telemetry {
                 if skel
                     .maps
                     .deny
