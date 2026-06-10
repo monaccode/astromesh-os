@@ -269,10 +269,11 @@ for u in mesh-cert-issue mesh-cert-unseal mesh-net mesh-ipsec; do
     systemctl enable "${u}.service"
 done
 
-# Fase 4.3: bake the OpenTelemetry Collector (core `otelcol`) — a single Go binary provided as a BUILD
-# INPUT at ${SRC}/dist/otelcol (mkosi runs this script WITHOUT network; the host/CI fetches +
-# checksum-verifies it, same model as the .deb). Baked ONLY when the binary is staged, so non-otel
-# builds (other gates) carry no collector and no size cost. The unit is also guarded at runtime.
+# Fase 4.3: bake the OpenTelemetry Collector — a MINIMAL `otelcol` built via ocb (otlp-receiver + batch
+# + debug + otlp-exporter, ~26 MB; the prebuilt core distro is 123 MB and overflows the 448 MB root).
+# Provided as a BUILD INPUT at ${SRC}/dist/otelcol (mkosi runs this script WITHOUT network; the host/CI
+# builds it, same delivery model as the .deb). Baked ONLY when the binary is staged, so non-otel builds
+# (other gates) carry no collector and no size cost. The unit is also guarded at runtime.
 OTELCOL_BIN="${SRC}/dist/otelcol"
 if [ -x "${OTELCOL_BIN}" ]; then
     install -m 0755 "${OTELCOL_BIN}" /usr/bin/otelcol

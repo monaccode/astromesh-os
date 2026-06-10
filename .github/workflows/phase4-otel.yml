@@ -69,15 +69,15 @@ jobs:
         run: |
           apt-get update
           apt-get install -y mkosi systemd-ukify systemd-boot mtools dosfstools ca-certificates curl
-      - name: Fetch + verify OTel Collector binary (postinst has no network)
+      - name: Build minimal OTel Collector via ocb (postinst has no network; core distro too big)
         run: |
           ver=0.116.0
-          base="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${ver}"
-          curl -fsSLo otelcol.tgz "${base}/otelcol_${ver}_linux_amd64.tar.gz"
-          curl -fsSLo sums.txt "${base}/opentelemetry-collector-releases_otelcol_checksums.txt"
-          grep " otelcol_${ver}_linux_amd64.tar.gz$" sums.txt | sha256sum -c -
-          tar -xzf otelcol.tgz otelcol
-          install -m 0755 otelcol dist/otelcol
+          apt-get install -y golang-go
+          tmp=$(mktemp -d)
+          cp phase4/otel/builder-config.yaml "$tmp/"
+          ( cd "$tmp" && go run "go.opentelemetry.io/collector/cmd/builder@v${ver}" --config=builder-config.yaml )
+          install -m 0755 "$tmp/_build/otelcol-astromesh" dist/otelcol
+          dist/otelcol --version
       - name: Build image
         env:
           PHASE0_MODE: stub

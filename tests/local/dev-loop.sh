@@ -63,24 +63,22 @@ ensure_deb() {
 (see README → Local dev loop). The .deb is then picked up by the next sync."
 }
 
-# Fase 4.3: fetch + checksum-verify the OTel Collector binary on the HOST (mkosi postinst has no
-# network) and stage it at WORKDIR/dist/otelcol, which the postinst installs as the baked sidecar.
-# Cached by version under CACHE so repeated runs re-download nothing.
+# Fase 4.3: build a MINIMAL OTel Collector via ocb on the HOST (mkosi postinst has no network; and the
+# prebuilt core/k8s distros are ~120-140 MB extracted, which overflows the 448 MB root — a custom build
+# with only otlp-receiver + batch + debug + otlp-exporter is ~26 MB). Stage it at WORKDIR/dist/otelcol,
+# which the postinst installs as the baked sidecar. Cached by version under CACHE (built once).
 ensure_otelcol() {
     local ver=0.116.0
-    local tgz="otelcol_${ver}_linux_amd64.tar.gz"
-    local base="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${ver}"
-    local cache_bin="${CACHE}/otelcol-${ver}"
+    local cache_bin="${CACHE}/otelcol-astromesh-${ver}"
     if [ ! -x "${cache_bin}" ]; then
-        log "fetching otelcol ${ver}"
+        log "building minimal otelcol via ocb (Go) — ${ver} (first run downloads Go modules)"
+        command -v go >/dev/null 2>&1 || apt-get install -y golang-go
         mkdir -p "${CACHE}"
         local tmp; tmp="$(mktemp -d)"
-        ( cd "${tmp}" \
-          && curl -fsSLo "${tgz}" "${base}/${tgz}" \
-          && curl -fsSLo sums.txt "${base}/opentelemetry-collector-releases_otelcol_checksums.txt" \
-          && grep " ${tgz}\$" sums.txt | sha256sum -c - \
-          && tar -xzf "${tgz}" otelcol ) || die "otelcol fetch/verify failed"
-        install -m 0755 "${tmp}/otelcol" "${cache_bin}"
+        cp "${SRC}/phase4/otel/builder-config.yaml" "${tmp}/builder-config.yaml"
+        ( cd "${tmp}" && go run "go.opentelemetry.io/collector/cmd/builder@v${ver}" --config=builder-config.yaml ) \
+            || die "ocb collector build failed"
+        install -m 0755 "${tmp}/_build/otelcol-astromesh" "${cache_bin}"
         rm -rf "${tmp}"
     fi
     mkdir -p "${WORKDIR}/dist"

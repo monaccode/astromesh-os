@@ -1,0 +1,23 @@
+# Fase 4.3: OpenTelemetry Collector Builder (ocb) manifest for a MINIMAL Astromesh collector. The
+# prebuilt core/k8s distros are ~120-140 MB extracted, which does not fit the 448 MB root partition; a
+# custom build with only the components we use is ~40 MB. Components: OTLP receiver, batch processor,
+# debug exporter (gate assertion over the console) + OTLP exporter (prod downstream to a fleet backend).
+dist:
+  name: otelcol-astromesh
+  description: Minimal Astromesh OTel Collector (otlp in; batch; debug + otlp out)
+  version: 0.116.0
+  output_path: ./_build
+
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.116.0
+
+processors:
+  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.116.0
+
+exporters:
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.116.0
+  - gomod: go.opentelemetry.io/collector/exporter/otlpexporter v0.116.0
+
+providers:
+  - gomod: go.opentelemetry.io/collector/confmap/provider/fileprovider v1.22.0
+  - gomod: go.opentelemetry.io/collector/confmap/provider/envprovider v1.22.0
