@@ -37,7 +37,12 @@ openssl req -new -key "${WORK}/node.key" -subj "/CN=${NODE_ID}/" -out "${WORK}/n
 openssl x509 -req -in "${WORK}/node.csr" -CA "${CA_CRT}" -CAkey "${CA_KEY}" -CAserial "${WORK}/ca.srl" -CAcreateserial \
     -days 3650 -sha256 -extfile "${WORK}/ext.cnf" -out "${CERT}" 2>"${WORK}/e" || { log "FAIL: sign cert: $(tr -d '\n' <"${WORK}/e")"; exit 1; }
 
-# 2. Seal the private key to the TPM (PCR 11+12), reusing the Fase 3.3 mechanism.
+# 2. The EC key PEM (~300B) exceeds the TPM's max sealable data (128B). So encrypt the key with a
+#    random 32-byte wrapping key (kept encrypted-at-rest on /var) and seal the WRAP KEY to the TPM
+#    (PCR 11+12, the Fase 3.3 mechanism). Unseal reverses it.
+ENC=/var/lib/astromesh/mesh/node.key.enc
+openssl rand -out "${WORK}/wrap.key" 32 2>/dev/null || { log "FAIL: rand wrap key"; exit 1; }
+openssl enc -aes-256-cbc -pbkdf2 -in "${WORK}/node.key" -out "${ENC}" -pass "file:${WORK}/wrap.key" 2>"${WORK}/e" || { log "FAIL: wrap node key: $(tr -d '\n' <"${WORK}/e")"; exit 1; }
 TPM2TOOLS_TCTI=""
 for d in /dev/tpmrm0 /dev/tpm0; do if [ -e "$d" ]; then export TPM2TOOLS_TCTI="device:$d"; break; fi; done
 [ -n "${TPM2TOOLS_TCTI}" ] || { log "FAIL: no TPM device"; exit 1; }
@@ -47,7 +52,7 @@ tpm2_policypcr -S "${WORK}/trial.ctx" -l sha256:11,12 -L "${WORK}/policy.digest"
     || { tpm2_flushcontext "${WORK}/trial.ctx" 2>/dev/null || true; log "FAIL: policypcr"; exit 1; }
 tpm2_flushcontext "${WORK}/trial.ctx" 2>/dev/null || true
 tpm2_createprimary -C o -g sha256 -G ecc -c "${WORK}/primary.ctx" >/dev/null 2>&1 || { log "FAIL: createprimary"; exit 1; }
-tpm2_create -C "${WORK}/primary.ctx" -i "${WORK}/node.key" \
+tpm2_create -C "${WORK}/primary.ctx" -i "${WORK}/wrap.key" \
     -u "${WORK}/seal.pub" -r "${WORK}/seal.priv" -L "${WORK}/policy.digest" \
     -a "fixedtpm|fixedparent|adminwithpolicy" >/dev/null 2>&1 || { log "FAIL: tpm2_create (seal)"; exit 1; }
 install -m 0600 "${WORK}/seal.pub" "${SEALPUB}"; install -m 0600 "${WORK}/seal.priv" "${SEALPRIV}"; install -m 0600 "${WORK}/policy.digest" "${POLICY}"
