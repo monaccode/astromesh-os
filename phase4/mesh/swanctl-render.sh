@@ -21,7 +21,7 @@ install -d -m 0755 "${SW}/conf.d" "${SW}/x509ca" "${SW}/x509" "${SW}/private"
 install -m 0644 "${CA}"   "${SW}/x509ca/ca.crt"
 install -m 0644 "${CERT}" "${SW}/x509/node.crt"
 install -m 0600 "${KEY}"  "${SW}/private/node.key"
-cat > "${SW}/conf.d/mesh.conf" <<CONF
+cat > "${SW}/swanctl.conf" <<CONF
 connections {
   mesh {
     version = 2

@@ -254,6 +254,10 @@ systemctl enable astromesh-machine-config.service
 
 # Fase 4.2: mesh over IPsec. Bake the cluster CA (trust anchor) and the mesh units; all are guarded
 # (no-op unless a mesh-* profile rendered runtime.yaml), so non-mesh boots are unaffected.
+# strongSwan ships AppArmor profiles that confine charon/swanctl to /etc/swanctl, but our creds live
+# in writable /run/swanctl (the root is verity read-only). Drop those profiles so the mesh IPsec can
+# read /run/swanctl; charon/swanctl run unconfined (only on mesh-* boots; astromeshd stays confined).
+rm -f /etc/apparmor.d/usr.sbin.charon-systemd /etc/apparmor.d/usr.sbin.swanctl
 install -d /usr/lib/astromesh-os/mesh
 install -m 0644 "${SRC}/phase4/mesh/ca.crt" /usr/lib/astromesh-os/mesh/ca.crt
 install -m 0600 "${SRC}/phase4/mesh/ca.key" /usr/lib/astromesh-os/mesh/ca.key   # TEST: prod issues out-of-band
