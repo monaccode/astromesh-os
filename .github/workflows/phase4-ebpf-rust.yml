@@ -1,4 +1,4 @@
-name: phase4-ebpf
+name: phase4-ebpf-rust
 
 # NOTE: the gate proves OTLP EXPORT end-to-end, which needs the Fase 4.3 node-source change (OTLP
 # bridge activation) in the runtime. CI builds the .deb from monaccode/astromesh at the ref pinned in
@@ -7,7 +7,7 @@ name: phase4-ebpf
 
 on:
   push:
-    branches: [feat/phase4.4-ebpf]
+    branches: [feat/phase4.4d-rust-ebpf]
   workflow_dispatch:
 
 jobs:
@@ -69,13 +69,21 @@ jobs:
         run: |
           apt-get update
           apt-get install -y mkosi systemd-ukify systemd-boot mtools dosfstools ca-certificates curl
-      - name: Compile the eBPF object (postinst has no clang)
+      - name: Build minimal OTel Collector via ocb (postinst has no network; core distro too big)
         run: |
-          apt-get install -y clang libbpf-dev
-          mkdir -p dist
-          clang -O2 -g -target bpf -D__TARGET_ARCH_x86 -I/usr/include/x86_64-linux-gnu \
-            -c phase4/ebpf/egress_acct.bpf.c -o dist/egress_acct.bpf.o
-          ls -la dist/egress_acct.bpf.o
+          ver=0.116.0
+          apt-get install -y golang-go
+          tmp=$(mktemp -d)
+          cp phase4/otel/builder-config.yaml "$tmp/"
+          ( cd "$tmp" && go run "go.opentelemetry.io/collector/cmd/builder@v${ver}" --config=builder-config.yaml )
+          install -m 0755 "$tmp/_build/otelcol-astromesh" dist/otelcol
+          dist/otelcol --version
+      - name: Build the Rust eBPF control daemon (libbpf-rs; postinst has no cargo)
+        run: |
+          apt-get install -y rustc cargo clang libbpf-dev bpftool libelf-dev zlib1g-dev pkg-config
+          ( cd phase4/ebpf/rust && cargo build --release )
+          install -m 0755 phase4/ebpf/rust/target/release/astromesh-ebpf dist/astromesh-ebpf
+          ls -la dist/astromesh-ebpf
       - name: Build image
         env:
           PHASE0_MODE: stub
@@ -83,21 +91,21 @@ jobs:
       - run: mkdir -p out && cp mkosi.output/astromesh-os-phase0_1.raw out/v1.raw
       - uses: actions/upload-artifact@v4
         with:
-          name: phase4-ebpf-image
+          name: phase4-ebpf-rust-image
           path: out/v1.raw
 
-  ebpf-egress-gate:
+  ebpf-rust-gate:
     needs: build-image
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: phase4-ebpf-image
+          name: phase4-ebpf-rust-image
           path: image
       - name: Install QEMU + OVMF + swtpm
         run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 qemu-utils ovmf swtpm swtpm-tools curl
       - name: Enable KVM access
         run: sudo chmod 666 /dev/kvm 2>/dev/null || echo "no kvm; TCG fallback"
-      - name: Run eBPF egress gate
-        run: sudo bash tests/boot/ebpf-egress-and-assert.sh image/v1.raw
+      - name: Run Rust eBPF gate
+        run: sudo bash tests/boot/ebpf-rust-and-assert.sh image/v1.raw
