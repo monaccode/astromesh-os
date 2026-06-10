@@ -29,11 +29,13 @@ if [ -f "${SEALPRIV}" ] && [ -f "${CERT}" ]; then log "already issued+sealed; CE
 install -d -m 0700 "${SECRETS}"; install -d -m 0755 /var/lib/astromesh/mesh
 
 # 1. Keypair + CSR + cert signed by the cluster CA (CN=node_id, SAN=IP:mesh_ip).
-openssl ecparam -genkey -name prime256v1 -out "${WORK}/node.key" 2>/dev/null || { log "FAIL: genkey"; exit 1; }
-openssl req -new -key "${WORK}/node.key" -subj "/CN=${NODE_ID}/" -out "${WORK}/node.csr" 2>/dev/null || { log "FAIL: csr"; exit 1; }
-openssl x509 -req -in "${WORK}/node.csr" -CA "${CA_CRT}" -CAkey "${CA_KEY}" -CAcreateserial \
-    -days 3650 -sha256 -extfile <(printf 'subjectAltName=IP:%s\nextendedKeyUsage=serverAuth,clientAuth\n' "${MESH_IP}") \
-    -out "${CERT}" 2>/dev/null || { log "FAIL: sign cert"; exit 1; }
+# NOTE: the CA dir (/usr/lib/...) is read-only verity, so the serial (-CAserial) MUST go to a writable
+# path, and the ext file is a real file in WORK (not a /dev/fd process substitution) for robustness.
+printf 'subjectAltName=IP:%s\nextendedKeyUsage=serverAuth,clientAuth\n' "${MESH_IP}" > "${WORK}/ext.cnf"
+openssl ecparam -genkey -name prime256v1 -out "${WORK}/node.key" 2>"${WORK}/e" || { log "FAIL: genkey: $(tr -d '\n' <"${WORK}/e")"; exit 1; }
+openssl req -new -key "${WORK}/node.key" -subj "/CN=${NODE_ID}/" -out "${WORK}/node.csr" 2>"${WORK}/e" || { log "FAIL: csr: $(tr -d '\n' <"${WORK}/e")"; exit 1; }
+openssl x509 -req -in "${WORK}/node.csr" -CA "${CA_CRT}" -CAkey "${CA_KEY}" -CAserial "${WORK}/ca.srl" -CAcreateserial \
+    -days 3650 -sha256 -extfile "${WORK}/ext.cnf" -out "${CERT}" 2>"${WORK}/e" || { log "FAIL: sign cert: $(tr -d '\n' <"${WORK}/e")"; exit 1; }
 
 # 2. Seal the private key to the TPM (PCR 11+12), reusing the Fase 3.3 mechanism.
 TPM2TOOLS_TCTI=""
