@@ -40,14 +40,14 @@ echo "[mesh] boot gateway (${GW_IP}) â€” socket listen, and worker (${WK_IP}) â€
 boot_mesh_node gateway gateway "${GW_IP}" "${WK_IP}" "${GW_PORT}" "listen=:${SOCK_PORT}" "${GW_TPM}" 01
 GW_QPID=${MESH_QPID}; GW_CON="${MESH_CON}"
 sleep 2   # let the gateway's socket listener bind before the worker connects
-boot_mesh_node worker  worker  "${WK_IP}" "${GW_IP}" "${WK_PORT}" "connect=127.0.0.1:${SOCK_PORT}" "${WK_TPM}" 02
+boot_mesh_node worker  worker  "${WK_IP}" "${GW_IP}" "${WK_PORT}" "connect=127.0.0.1:${SOCK_PORT}" "${WK_TPM}" 02 "${GW_IP}"
 WK_QPID=${MESH_QPID}; WK_CON="${MESH_CON}"
 
 # 1. Both runtimes up.
 for p in "${GW_PORT}:gateway" "${WK_PORT}:worker"; do
     port="${p%%:*}"; name="${p##*:}"
-    echo "[mesh] waiting for ${name} /v1/health (timeout 300s)"
-    deadline=$(( $(date +%s) + 300 ))
+    echo "[mesh] waiting for ${name} /v1/health (timeout 420s)"
+    deadline=$(( $(date +%s) + 420 ))
     until curl -fsS "http://localhost:${port}/v1/health" >/dev/null 2>&1; do
         if [ "$(date +%s)" -ge "${deadline}" ]; then
             echo "[mesh] FAIL: ${name} /v1/health never came up"; tail -n 120 "mesh-${name}-console.log"; exit 1

@@ -20,7 +20,10 @@ SW=/run/swanctl
 install -d -m 0755 "${SW}/conf.d" "${SW}/x509ca" "${SW}/x509" "${SW}/private"
 install -m 0644 "${CA}"   "${SW}/x509ca/ca.crt"
 install -m 0644 "${CERT}" "${SW}/x509/node.crt"
-install -m 0600 "${KEY}"  "${SW}/private/node.key"
+# strongSwan's private/ loader wants PKCS#8 (BEGIN PRIVATE KEY); the unsealed key is SEC1 EC
+# (BEGIN EC PRIVATE KEY), which it fails to parse. Convert on the way in.
+openssl pkcs8 -topk8 -nocrypt -in "${KEY}" -out "${SW}/private/node.key" 2>/dev/null || install -m 0600 "${KEY}" "${SW}/private/node.key"
+chmod 0600 "${SW}/private/node.key"
 cat > "${SW}/swanctl.conf" <<CONF
 connections {
   mesh {

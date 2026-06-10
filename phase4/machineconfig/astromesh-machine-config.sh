@@ -71,28 +71,28 @@ printf '%s\n' "${node_id}" > /var/lib/astromesh/node-id
 # Fase 4.2: if the machine-config carries mesh networking (mesh_ip/peer_ip) and the rendered profile
 # is a mesh profile, pin the runtime's mesh bind/seeds to concrete IPs (avoids /etc/hosts, read-only)
 # and export them for the mesh units (cert issue / static IP / IPsec).
-mesh_ip=$(/opt/astromesh/venv/bin/python3 - "${CRED}" <<'PY'
-import sys, yaml; d=yaml.safe_load(open(sys.argv[1])) or {}; print(str(d.get("mesh_ip","")).strip())
+read -r mesh_ip peer_ip seed_ip < <(/opt/astromesh/venv/bin/python3 - "${CRED}" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1])) or {}
+print(str(d.get("mesh_ip","")).strip(), str(d.get("peer_ip","")).strip(), str(d.get("seed_ip","")).strip() or "-")
 PY
 )
-peer_ip=$(/opt/astromesh/venv/bin/python3 - "${CRED}" <<'PY'
-import sys, yaml; d=yaml.safe_load(open(sys.argv[1])) or {}; print(str(d.get("peer_ip","")).strip())
-PY
-)
+[ "${seed_ip}" = "-" ] && seed_ip=""
 if [ -n "${mesh_ip}" ] && grep -q 'mesh:' "${RUNTIME_YAML}" 2>/dev/null; then
     install -d -m 0700 /run/astromesh/mesh
+    # peer_ip drives the IPsec SA (remote); seed_ip drives WHO joins WHOM. The gateway gets no seed_ip
+    # (standalone -> astromeshd does not block on join()); only the worker seeds to the gateway.
     printf 'MESH_NODE_ID=%s\nMESH_IP=%s\nMESH_PEER_IP=%s\n' "${node_id}" "${mesh_ip}" "${peer_ip}" > /run/astromesh/mesh/env
-    /opt/astromesh/venv/bin/python3 - "${RUNTIME_YAML}" "${mesh_ip}" "${peer_ip}" <<'PY'
+    /opt/astromesh/venv/bin/python3 - "${RUNTIME_YAML}" "${mesh_ip}" "${seed_ip}" <<'PY'
 import sys, yaml
-path, mesh_ip, peer_ip = sys.argv[1], sys.argv[2], sys.argv[3]
+path, mesh_ip, seed_ip = sys.argv[1], sys.argv[2], sys.argv[3]
 d = yaml.safe_load(open(path)) or {}
 m = d.setdefault("spec", {}).setdefault("mesh", {})
 m["bind"] = f"{mesh_ip}:8000"
-if peer_ip:
-    m["seeds"] = [f"http://{peer_ip}:8000"]
+m["seeds"] = [f"http://{seed_ip}:8000"] if seed_ip else []
 yaml.safe_dump(d, open(path, "w"), sort_keys=False)
 PY
-    log "mesh net pinned: bind=${mesh_ip}:8000 peer=${peer_ip}"
+    log "mesh net pinned: bind=${mesh_ip}:8000 peer=${peer_ip} seed=${seed_ip:-<standalone>}"
 fi
 
 log "APPLIED profile=${profile} node=${node_id} hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null) OK"
