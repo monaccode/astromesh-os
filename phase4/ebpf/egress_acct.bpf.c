@@ -1,5 +1,6 @@
-// Fase 4.4: cgroup_skb/egress — per-flow egress byte/packet accounting (no filtering: always returns
-// 1/allow; the Fase 3.5 IPAddressDeny filter still governs). Classic program (uapi headers, no CO-RE).
+// Fase 4.4/4.4e: cgroup_skb/egress — per-flow egress byte/packet accounting + enforcement. Counts every
+// flow (4.4) and DROPS (return 0) flows present in the `deny` map, which the Rust daemon populates when a
+// flow exceeds its byte quota (4.4e). The Fase 3.5 IPAddressDeny filter still governs. Classic (no CO-RE).
 #include <linux/bpf.h>
 #include <linux/if_ether.h>
 #include <linux/ip.h>
@@ -26,6 +27,14 @@ struct {
     __type(key, struct flow_key);
     __type(value, struct flow_stat);
 } flows SEC(".maps");
+
+// Fase 4.4e: deny map — flows the userspace daemon decided to block (over quota). Presence => drop.
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 4096);
+    __type(key, struct flow_key);
+    __type(value, __u8);
+} deny SEC(".maps");
 
 // cgroup_skb: skb->data points at the IP header (L3), not Ethernet.
 SEC("cgroup_skb/egress")
@@ -57,6 +66,10 @@ int egress_acct(struct __sk_buff *skb)
             return 1;
         key.dport = uh->dest;
     }
+
+    // Fase 4.4e: enforcement — drop egress to denied flows (before counting; denied bytes stop accruing).
+    if (bpf_map_lookup_elem(&deny, &key))
+        return 0;
 
     struct flow_stat *st = bpf_map_lookup_elem(&flows, &key);
     if (st) {
