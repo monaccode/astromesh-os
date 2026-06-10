@@ -278,7 +278,7 @@ OTELCOL_TGZ="otelcol_${OTELCOL_VER}_linux_amd64.tar.gz"
 OTELCOL_BASE="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${OTELCOL_VER}"
 ( cd /tmp \
   && curl -fsSLo "${OTELCOL_TGZ}" "${OTELCOL_BASE}/${OTELCOL_TGZ}" \
-  && curl -fsSLo otelcol_checksums.txt "${OTELCOL_BASE}/opentelemetry-collector-releases_otelcol_${OTELCOL_VER}_checksums.txt" \
+  && curl -fsSLo otelcol_checksums.txt "${OTELCOL_BASE}/opentelemetry-collector-releases_otelcol_checksums.txt" \
   && grep " ${OTELCOL_TGZ}\$" otelcol_checksums.txt | sha256sum -c - \
   && tar -xzf "${OTELCOL_TGZ}" otelcol \
   && install -m 0755 otelcol /usr/bin/otelcol \
