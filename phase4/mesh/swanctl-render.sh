@@ -46,5 +46,6 @@ connections {
 CONF
 systemctl start strongswan.service 2>/dev/null || systemctl start strongswan-starter.service 2>/dev/null || true
 SWANCTL_DIR="${SW}" swanctl --load-all 2>&1 | sed 's/^/[mesh:swanctl] /' || { log "FAIL: swanctl --load-all"; exit 1; }
-SWANCTL_DIR="${SW}" swanctl --initiate --child mesh 2>/dev/null || true   # trap also brings it up on first packet
+# Do NOT --initiate (it blocks retransmitting if the peer isn't up yet). start_action=trap brings the
+# SA up on the first real mesh packet (astromeshd's join/gossip to the peer).
 log "IPSEC-LOADED OK (local=${MESH_IP} peer=${PEER_IP})"

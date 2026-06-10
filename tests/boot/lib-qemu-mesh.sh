@@ -8,8 +8,14 @@
 # mesh_smbios <role> <node_id> <mesh_ip> <peer_ip> [seed_ip] -> the -smbios value (machine-config cred)
 mesh_smbios() {
     local role="$1" node_id="$2" mesh_ip="$3" peer_ip="$4" seed_ip="${5:-}"
-    local y; y="$(printf 'profile: mesh-%s\nnode_id: %s\nmesh_ip: %s\npeer_ip: %s\n' "${role}" "${node_id}" "${mesh_ip}" "${peer_ip}")"
-    [ -n "${seed_ip}" ] && y="${y}$(printf 'seed_ip: %s\n' "${seed_ip}")"
+    # Build with REAL newlines (command substitution strips trailing \n, which would glue an appended
+    # seed_ip onto the peer_ip line and break the YAML).
+    local y="profile: mesh-${role}
+node_id: ${node_id}
+mesh_ip: ${mesh_ip}
+peer_ip: ${peer_ip}"
+    [ -n "${seed_ip}" ] && y="${y}
+seed_ip: ${seed_ip}"
     smbios_machine_config "${y}"
 }
 
