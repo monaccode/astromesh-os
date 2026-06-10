@@ -306,6 +306,16 @@ case "${TARGET}" in
     bash tests/boot/ebpf-egress-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
+  ebpf-otlp)
+    require_kvm; sync_src; ensure_deb; ensure_ebpf; ensure_otelcol
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    build_v 1
+    cd "${WORKDIR}"
+    # 1 VM with ebpf_egress + otel; the privileged exporter pushes the eBPF flow map as OTLP metrics to
+    # the collector; the gate asserts the stub-flow metric arrived.
+    bash tests/boot/ebpf-otlp-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   clean)
     rm -rf "${WORKDIR}/mkosi.output" "${WORKDIR}"/*.qcow2 \
            "${WORKDIR}/ovmf_vars.fd" "${WORKDIR}/qemu-console.log" "${WORKDIR}/update-served"
@@ -313,7 +323,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | ebpf | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | ebpf | ebpf-otlp | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
