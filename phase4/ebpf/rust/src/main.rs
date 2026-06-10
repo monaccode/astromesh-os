@@ -44,7 +44,24 @@ fn astromeshd_cgroup() -> Option<String> {
     }
 }
 
-fn parse_flows(skel: &EgressAcctSkel) -> Vec<(String, u16, u8, u64, u64)> {
+fn quota_bytes() -> u64 {
+    let s = match fs::read_to_string(RT) {
+        Ok(s) => s,
+        Err(_) => return u64::MAX,
+    };
+    for line in s.lines() {
+        if let Some(rest) = line.trim().strip_prefix("quota_bytes:") {
+            if let Ok(n) = rest.trim().parse::<u64>() {
+                return n;
+            }
+        }
+    }
+    u64::MAX // no quota configured -> deny nothing (4.4d behavior)
+}
+
+// Returns (raw_key_bytes, daddr, dport, proto, bytes, packets). The raw key is reused verbatim to write
+// the `deny` map (same flow_key layout), so no reconstruction is needed.
+fn parse_flows(skel: &EgressAcctSkel) -> Vec<(Vec<u8>, String, u16, u8, u64, u64)> {
     let mut out = Vec::new();
     let map = &skel.maps.flows;
     for key in map.keys() {
@@ -55,7 +72,7 @@ fn parse_flows(skel: &EgressAcctSkel) -> Vec<(String, u16, u8, u64, u64)> {
                 let proto = key[6];
                 let nbytes = u64::from_le_bytes(val[0..8].try_into().unwrap());
                 let npkts = u64::from_le_bytes(val[8..16].try_into().unwrap());
-                out.push((daddr, dport, proto, nbytes, npkts));
+                out.push((key.clone(), daddr, dport, proto, nbytes, npkts));
             }
         }
     }
@@ -96,8 +113,14 @@ async fn main() -> Result<()> {
     let g_bytes = meter.u64_gauge("astromesh.egress.bytes").build();
     let g_pkts = meter.u64_gauge("astromesh.egress.packets").build();
 
+    let quota = quota_bytes();
+    println!(
+        "[ctl] egress quota = {} bytes/flow",
+        if quota == u64::MAX { 0 } else { quota }
+    );
+
     loop {
-        for (daddr, dport, proto, nbytes, npkts) in parse_flows(&skel) {
+        for (rawkey, daddr, dport, proto, nbytes, npkts) in parse_flows(&skel) {
             let attrs = [
                 KeyValue::new("daddr", daddr.clone()),
                 KeyValue::new("dport", dport as i64),
@@ -105,6 +128,17 @@ async fn main() -> Result<()> {
             ];
             g_bytes.record(nbytes, &attrs);
             g_pkts.record(npkts, &attrs);
+            // Fase 4.4e: enforcement decision — deny over-quota flows (the eBPF then drops their egress).
+            if nbytes > quota {
+                if skel
+                    .maps
+                    .deny
+                    .update(&rawkey, &[1u8], libbpf_rs::MapFlags::ANY)
+                    .is_ok()
+                {
+                    println!("[ctl] DENY {daddr}:{dport} (bytes={nbytes} > quota={quota})");
+                }
+            }
         }
         let _ = provider.force_flush();
         tokio::time::sleep(Duration::from_secs(10)).await;
