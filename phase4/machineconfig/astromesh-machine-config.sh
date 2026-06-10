@@ -112,10 +112,13 @@ d = yaml.safe_load(open(path)) or {}
 obs = d.setdefault("spec", {}).setdefault("observability", {})
 otlp = obs.setdefault("otlp", {})
 otlp["enabled"] = True
-otlp.setdefault("endpoint", "http://localhost:4317")
+# Pin to explicit IPv4 — the image's /etc/hosts maps localhost to BOTH 127.0.0.1 and ::1, and gRPC
+# (RFC 6724) prefers ::1, but the baked collector listens IPv4-only on 127.0.0.1, so "localhost" would
+# silently hit [::1]:4317 and the export would never arrive.
+otlp["endpoint"] = "http://127.0.0.1:4317"
 yaml.safe_dump(d, open(path, "w"), sort_keys=False)
 PY
-    log "otel export enabled (observability.otlp.enabled=true endpoint=localhost:4317)"
+    log "otel export enabled (observability.otlp.enabled=true endpoint=127.0.0.1:4317)"
 fi
 
 log "APPLIED profile=${profile} node=${node_id} hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null) OK"
