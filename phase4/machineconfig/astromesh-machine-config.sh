@@ -130,12 +130,18 @@ print(str(d.get("ebpf_egress", "")).strip().lower())
 PY
 )
 if [ "${ebpf_egress}" = "true" ] || [ "${ebpf_egress}" = "1" ]; then
-    /opt/astromesh/venv/bin/python3 - "${RUNTIME_YAML}" <<'PY'
+    # Fase 4.4e: an optional ebpf_egress_quota (bytes/flow) arms the deny-based enforcement; the Rust
+    # daemon writes any flow exceeding it to the eBPF deny map. Absent => no quota (accounting only).
+    /opt/astromesh/venv/bin/python3 - "${RUNTIME_YAML}" "${CRED}" <<'PY'
 import sys, yaml
-path = sys.argv[1]
+path, cred = sys.argv[1], sys.argv[2]
 d = yaml.safe_load(open(path)) or {}
+c = yaml.safe_load(open(cred)) or {}
 eg = d.setdefault("spec", {}).setdefault("ebpf", {}).setdefault("egress", {})
 eg["enabled"] = True
+q = str(c.get("ebpf_egress_quota", "")).strip()
+if q:
+    eg["quota_bytes"] = int(q)
 yaml.safe_dump(d, open(path, "w"), sort_keys=False)
 PY
     log "ebpf egress accounting enabled (spec.ebpf.egress.enabled=true)"
