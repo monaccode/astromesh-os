@@ -224,6 +224,17 @@ case "${TARGET}" in
     bash tests/boot/machineconfig-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
+  mesh)
+    require_kvm; sync_src; ensure_deb
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
+    build_v 1
+    cd "${WORKDIR}"
+    # The gate boots 2 VMs joined by a socket netdev (each with its own swtpm), converts per-node
+    # copies itself, and injects the mesh machine-config via SMBIOS; pass the raw.
+    bash tests/boot/mesh-ipsec-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   tpm)
     require_kvm; sync_src; ensure_deb
     # Same stale-server guard as noshell/confine: a leftover :HTTP_PORT server would auto-update
@@ -246,7 +257,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | tpm | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
