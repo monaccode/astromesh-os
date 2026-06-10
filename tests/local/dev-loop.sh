@@ -250,6 +250,16 @@ case "${TARGET}" in
     bash tests/boot/tpm-seal-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
+  otel)
+    require_kvm; sync_src; ensure_deb
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    build_v 1
+    cd "${WORKDIR}"
+    # 1 VM with an `otel` machine-config (flips observability.otlp.enabled); the gate triggers an agent
+    # run and asserts the baked otelcol sidecar logged the exported span.
+    bash tests/boot/otel-export-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   clean)
     rm -rf "${WORKDIR}/mkosi.output" "${WORKDIR}"/*.qcow2 \
            "${WORKDIR}/ovmf_vars.fd" "${WORKDIR}/qemu-console.log" "${WORKDIR}/update-served"
@@ -257,7 +267,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
