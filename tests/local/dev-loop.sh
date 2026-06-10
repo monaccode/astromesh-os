@@ -308,6 +308,16 @@ case "${TARGET}" in
     bash tests/boot/ebpf-rust-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
+  ebpf-control)
+    require_kvm; sync_src; ensure_deb; ensure_ebpf_rust; ensure_otelcol
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    build_v 1
+    cd "${WORKDIR}"
+    # 1 VM with ebpf_egress + otel + ebpf_egress_quota:500; the Rust daemon denies the over-quota stub
+    # flow and the eBPF program drops its egress; the gate asserts both the decision and the enforcement.
+    bash tests/boot/ebpf-control-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   agent-egress)
     require_kvm; sync_src; ensure_deb; ensure_otelcol
     command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
@@ -325,7 +335,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | ebpf-rust | agent-egress | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | ebpf-rust | ebpf-control | agent-egress | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
