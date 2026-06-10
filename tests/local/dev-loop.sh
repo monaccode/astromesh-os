@@ -63,6 +63,31 @@ ensure_deb() {
 (see README → Local dev loop). The .deb is then picked up by the next sync."
 }
 
+# Fase 4.3: fetch + checksum-verify the OTel Collector binary on the HOST (mkosi postinst has no
+# network) and stage it at WORKDIR/dist/otelcol, which the postinst installs as the baked sidecar.
+# Cached by version under CACHE so repeated runs re-download nothing.
+ensure_otelcol() {
+    local ver=0.116.0
+    local tgz="otelcol_${ver}_linux_amd64.tar.gz"
+    local base="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${ver}"
+    local cache_bin="${CACHE}/otelcol-${ver}"
+    if [ ! -x "${cache_bin}" ]; then
+        log "fetching otelcol ${ver}"
+        mkdir -p "${CACHE}"
+        local tmp; tmp="$(mktemp -d)"
+        ( cd "${tmp}" \
+          && curl -fsSLo "${tgz}" "${base}/${tgz}" \
+          && curl -fsSLo sums.txt "${base}/opentelemetry-collector-releases_otelcol_checksums.txt" \
+          && grep " ${tgz}\$" sums.txt | sha256sum -c - \
+          && tar -xzf "${tgz}" otelcol ) || die "otelcol fetch/verify failed"
+        install -m 0755 "${tmp}/otelcol" "${cache_bin}"
+        rm -rf "${tmp}"
+    fi
+    mkdir -p "${WORKDIR}/dist"
+    install -m 0755 "${cache_bin}" "${WORKDIR}/dist/otelcol"
+    log "otelcol staged -> dist/otelcol"
+}
+
 build_v() {  # $1=version  $2=extra "VAR=val" env (optional)
     # --force is required: `mkosi build` SKIPS when the output image already exists
     # ("exists already. Use --force to rebuild."), which would silently reuse a stale
@@ -251,7 +276,7 @@ case "${TARGET}" in
     ;;
 
   otel)
-    require_kvm; sync_src; ensure_deb
+    require_kvm; sync_src; ensure_deb; ensure_otelcol
     command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
     build_v 1
     cd "${WORKDIR}"

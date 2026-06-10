@@ -269,25 +269,21 @@ for u in mesh-cert-issue mesh-cert-unseal mesh-net mesh-ipsec; do
     systemctl enable "${u}.service"
 done
 
-# Fase 4.3: bake the OpenTelemetry Collector (core `otelcol`) — a single Go binary, fetched +
-# checksum-verified at build (no Debian package). Used only on otel boots (the unit is guarded), so
-# non-otel boots are unaffected. Pin the version; verify the tarball against the release's checksums
-# file (HTTPS + pinned tag), failing the build on mismatch.
-OTELCOL_VER=0.116.0
-OTELCOL_TGZ="otelcol_${OTELCOL_VER}_linux_amd64.tar.gz"
-OTELCOL_BASE="https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v${OTELCOL_VER}"
-( cd /tmp \
-  && curl -fsSLo "${OTELCOL_TGZ}" "${OTELCOL_BASE}/${OTELCOL_TGZ}" \
-  && curl -fsSLo otelcol_checksums.txt "${OTELCOL_BASE}/opentelemetry-collector-releases_otelcol_checksums.txt" \
-  && grep " ${OTELCOL_TGZ}\$" otelcol_checksums.txt | sha256sum -c - \
-  && tar -xzf "${OTELCOL_TGZ}" otelcol \
-  && install -m 0755 otelcol /usr/bin/otelcol \
-  && rm -f "${OTELCOL_TGZ}" otelcol_checksums.txt otelcol )
-/usr/bin/otelcol --version
-install -d /usr/lib/astromesh-os/otel
-install -m 0644 "${SRC}/phase4/otel/otelcol.yaml" /usr/lib/astromesh-os/otel/otelcol.yaml
-install -m 0755 "${SRC}/phase4/otel/otel-collector-render.sh" /usr/lib/astromesh-os/otel/otel-collector-render.sh
-install -m 0644 "${SRC}/phase4/otel/otel-collector.service" /etc/systemd/system/otel-collector.service
-systemctl enable otel-collector.service
+# Fase 4.3: bake the OpenTelemetry Collector (core `otelcol`) — a single Go binary provided as a BUILD
+# INPUT at ${SRC}/dist/otelcol (mkosi runs this script WITHOUT network; the host/CI fetches +
+# checksum-verifies it, same model as the .deb). Baked ONLY when the binary is staged, so non-otel
+# builds (other gates) carry no collector and no size cost. The unit is also guarded at runtime.
+OTELCOL_BIN="${SRC}/dist/otelcol"
+if [ -x "${OTELCOL_BIN}" ]; then
+    install -m 0755 "${OTELCOL_BIN}" /usr/bin/otelcol
+    /usr/bin/otelcol --version
+    install -d /usr/lib/astromesh-os/otel
+    install -m 0644 "${SRC}/phase4/otel/otelcol.yaml" /usr/lib/astromesh-os/otel/otelcol.yaml
+    install -m 0755 "${SRC}/phase4/otel/otel-collector-render.sh" /usr/lib/astromesh-os/otel/otel-collector-render.sh
+    install -m 0644 "${SRC}/phase4/otel/otel-collector.service" /etc/systemd/system/otel-collector.service
+    systemctl enable otel-collector.service
+else
+    echo "[postinst] no dist/otelcol — OTel collector NOT baked (non-otel build)"
+fi
 
 echo "[postinst] done (mode=${MODE})"
