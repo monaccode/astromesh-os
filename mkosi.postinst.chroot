@@ -301,6 +301,12 @@ if [ -f "${EBPF_OBJ}" ]; then
     install -m 0644 "${SRC}/phase4/ebpf/egress-acct-dump.timer" /etc/systemd/system/egress-acct-dump.timer
     systemctl enable egress-acct.service
     systemctl enable egress-acct-dump.timer
+    # Fase 4.4b: the OTLP exporter (root, reuses the venv) pushes the flow map as OTLP metrics to the
+    # 4.3 collector. Guarded at runtime on BOTH ebpf.egress.enabled and observability.otlp.enabled.
+    install -m 0755 "${SRC}/phase4/ebpf/egress-otlp-export.py" /usr/lib/astromesh-os/ebpf/egress-otlp-export.py
+    install -m 0644 "${SRC}/phase4/ebpf/egress-otlp-export.service" /etc/systemd/system/egress-otlp-export.service
+    install -m 0644 "${SRC}/phase4/ebpf/egress-otlp-export.timer" /etc/systemd/system/egress-otlp-export.timer
+    systemctl enable egress-otlp-export.timer
 else
     echo "[postinst] no dist/egress_acct.bpf.o — eBPF egress accounting NOT baked (non-ebpf build)"
 fi
