@@ -316,6 +316,16 @@ case "${TARGET}" in
     bash tests/boot/ebpf-otlp-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
+  agent-egress)
+    require_kvm; sync_src; ensure_deb; ensure_otelcol
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    build_v 1
+    cd "${WORKDIR}"
+    # 1 VM with otel:true (no ebpf); the runtime emits per-agent egress metrics; the gate asserts the
+    # phase0-smoke metric reached the collector.
+    bash tests/boot/agent-egress-otlp-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   clean)
     rm -rf "${WORKDIR}/mkosi.output" "${WORKDIR}"/*.qcow2 \
            "${WORKDIR}/ovmf_vars.fd" "${WORKDIR}/qemu-console.log" "${WORKDIR}/update-served"
@@ -323,7 +333,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | ebpf | ebpf-otlp | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | ebpf | ebpf-otlp | agent-egress | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
