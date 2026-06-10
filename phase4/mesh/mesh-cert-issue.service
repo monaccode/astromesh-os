@@ -1,0 +1,14 @@
+[Unit]
+Description=Astromesh OS Fase 4.2 mesh cert issue + TPM seal (first boot)
+After=astromesh-machine-config.service systemd-pcrphase.service
+Before=mesh-ipsec.service astromeshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/mesh/mesh-cert-issue.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

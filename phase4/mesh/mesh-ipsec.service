@@ -1,0 +1,15 @@
+[Unit]
+Description=Astromesh OS Fase 4.2 mesh IPsec (strongSwan IKEv2, cluster-CA mutual cert auth)
+After=mesh-cert-unseal.service mesh-net.service network-online.target
+Wants=network-online.target
+Before=astromeshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/mesh/swanctl-render.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
