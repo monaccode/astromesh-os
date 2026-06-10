@@ -20,3 +20,8 @@ service:
       receivers: [otlp]
       processors: [batch]
       exporters: [debug]
+    # Fase 4.4b: the eBPF egress exporter pushes per-flow byte/packet gauges here.
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
