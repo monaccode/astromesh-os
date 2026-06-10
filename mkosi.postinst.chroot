@@ -287,4 +287,22 @@ else
     echo "[postinst] no dist/otelcol — OTel collector NOT baked (non-otel build)"
 fi
 
+# Fase 4.4: eBPF per-flow egress accounting. The compiled object is a BUILD INPUT at ${SRC}/dist/
+# egress_acct.bpf.o (host/CI builds it with clang; the postinst has no clang). Baked + enabled ONLY
+# when the object is staged, so non-ebpf builds carry nothing. The units are also guarded at runtime.
+EBPF_OBJ="${SRC}/dist/egress_acct.bpf.o"
+if [ -f "${EBPF_OBJ}" ]; then
+    install -d /usr/lib/astromesh-os/ebpf
+    install -m 0644 "${EBPF_OBJ}" /usr/lib/astromesh-os/ebpf/egress_acct.bpf.o
+    install -m 0755 "${SRC}/phase4/ebpf/egress-acct.sh" /usr/lib/astromesh-os/ebpf/egress-acct.sh
+    install -m 0755 "${SRC}/phase4/ebpf/egress-acct-dump.sh" /usr/lib/astromesh-os/ebpf/egress-acct-dump.sh
+    install -m 0644 "${SRC}/phase4/ebpf/egress-acct.service" /etc/systemd/system/egress-acct.service
+    install -m 0644 "${SRC}/phase4/ebpf/egress-acct-dump.service" /etc/systemd/system/egress-acct-dump.service
+    install -m 0644 "${SRC}/phase4/ebpf/egress-acct-dump.timer" /etc/systemd/system/egress-acct-dump.timer
+    systemctl enable egress-acct.service
+    systemctl enable egress-acct-dump.timer
+else
+    echo "[postinst] no dist/egress_acct.bpf.o — eBPF egress accounting NOT baked (non-ebpf build)"
+fi
+
 echo "[postinst] done (mode=${MODE})"
