@@ -1,0 +1,10 @@
+[Unit]
+Description=Astromesh OS Fase 4.4 eBPF egress flow dump timer (every 10s)
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=10s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
