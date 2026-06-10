@@ -86,6 +86,19 @@ ensure_otelcol() {
     log "otelcol staged -> dist/otelcol"
 }
 
+# Fase 4.4: compile the eBPF object on the HOST (mkosi postinst has no clang/network) and stage it at
+# WORKDIR/dist/egress_acct.bpf.o, which the postinst bakes. Recompile each run (it is fast). The
+# -I<arch> include is required (<linux/bpf.h> -> <asm/types.h> in the arch dir); -D__TARGET_ARCH_x86
+# matches the cloud-amd64 kernel. clang+libbpf-dev installed on demand.
+ensure_ebpf() {
+    command -v clang >/dev/null 2>&1 || apt-get install -y clang libbpf-dev
+    mkdir -p "${WORKDIR}/dist"
+    clang -O2 -g -target bpf -D__TARGET_ARCH_x86 -I/usr/include/x86_64-linux-gnu \
+        -c "${SRC}/phase4/ebpf/egress_acct.bpf.c" \
+        -o "${WORKDIR}/dist/egress_acct.bpf.o" || die "eBPF compile failed"
+    log "egress_acct.bpf.o staged -> dist/"
+}
+
 build_v() {  # $1=version  $2=extra "VAR=val" env (optional)
     # --force is required: `mkosi build` SKIPS when the output image already exists
     # ("exists already. Use --force to rebuild."), which would silently reuse a stale
@@ -283,6 +296,16 @@ case "${TARGET}" in
     bash tests/boot/otel-export-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
+  ebpf)
+    require_kvm; sync_src; ensure_deb; ensure_ebpf
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    build_v 1
+    cd "${WORKDIR}"
+    # 1 VM with an `ebpf_egress` machine-config; the gate triggers an agent run and asserts the eBPF
+    # per-flow map counted the loopback provider call (causal egress accounting).
+    bash tests/boot/ebpf-egress-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   clean)
     rm -rf "${WORKDIR}/mkosi.output" "${WORKDIR}"/*.qcow2 \
            "${WORKDIR}/ovmf_vars.fd" "${WORKDIR}/qemu-console.log" "${WORKDIR}/update-served"
@@ -290,7 +313,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | ebpf | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
