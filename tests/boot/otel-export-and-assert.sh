@@ -60,15 +60,20 @@ curl -fsS -X POST "http://localhost:${PORT}/v1/agents/phase0-smoke/run" \
     -H 'Content-Type: application/json' \
     -d '{"query":"otel gate ping","session_id":"otel-gate"}' >/dev/null 2>&1 || true
 
-echo "[otel] asserting agent.run span reached the collector (debug exporter on console)"
-deadline=$(( $(date +%s) + 90 ))
-until grep -aqE 'agent\.run' "${CON}" && grep -aiqE 'service\.name.*astromesh|astromesh' "${CON}"; do
+# Assert on the COLLECTOR's debug-exporter dump (`Span #` and a `Name ... : agent.run` field), NOT on
+# astromeshd's own "agent.run ... finished" log line — only the otelcol debug exporter emits `Span #` /
+# `ResourceSpans`. This also makes the loop WAIT for the node's BatchSpanProcessor to flush (~5s) and the
+# collector to print, instead of matching a log line instantly.
+echo "[otel] asserting the collector's debug exporter dumped an agent.run span (give the batch ~flush)"
+deadline=$(( $(date +%s) + 120 ))
+until grep -aqE 'Span #[0-9]' "${CON}" && grep -aqE 'Name +: +agent\.run' "${CON}"; do
     if [ "$(date +%s)" -ge "${deadline}" ]; then
-        echo "[otel] FAIL: no exported agent.run span in collector output"
-        grep -aE 'otel\]|Span|agent\.run|ScopeSpans|ResourceSpans' "${CON}" | tail -n 40
+        echo "[otel] FAIL: collector never dumped an agent.run span (export did not reach the collector)"
+        echo "----- collector (otel) output -----"; grep -aE 'otel-collector-render|ResourceSpans|ScopeSpans|Span #|Name +:|TracesExporter|otlp|export' "${CON}" | tail -n 50
+        echo "----- node export markers -----"; grep -aE 'OTLP trace export enabled|OTLP export setup failed|agent\.run' "${CON}" | tail -n 10
         exit 1
     fi
     sleep 3
 done
-echo "[otel] SPAN-EXPORTED OK (agent.run reached the collector over OTLP)"
+echo "[otel] SPAN-EXPORTED OK (the collector's debug exporter dumped the agent.run span over OTLP)"
 echo "[otel] OTEL EXPORT GATE PASSED"
