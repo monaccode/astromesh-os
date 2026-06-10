@@ -95,4 +95,27 @@ PY
     log "mesh net pinned: bind=${mesh_ip}:8000 peer=${peer_ip} seed=${seed_ip:-<standalone>}"
 fi
 
+# Fase 4.3: if the machine-config asks for OTel export (otel: true), turn on the runtime's OTLP trace
+# export. The collector listens on localhost:4317 (the SDK default), so the node needs no endpoint
+# unless a fleet downstream is given (left for prod). Guarded by the field's presence/value.
+otel=$(/opt/astromesh/venv/bin/python3 - "${CRED}" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1])) or {}
+print(str(d.get("otel", "")).strip().lower())
+PY
+)
+if [ "${otel}" = "true" ] || [ "${otel}" = "1" ]; then
+    /opt/astromesh/venv/bin/python3 - "${RUNTIME_YAML}" <<'PY'
+import sys, yaml
+path = sys.argv[1]
+d = yaml.safe_load(open(path)) or {}
+obs = d.setdefault("spec", {}).setdefault("observability", {})
+otlp = obs.setdefault("otlp", {})
+otlp["enabled"] = True
+otlp.setdefault("endpoint", "http://localhost:4317")
+yaml.safe_dump(d, open(path, "w"), sort_keys=False)
+PY
+    log "otel export enabled (observability.otlp.enabled=true endpoint=localhost:4317)"
+fi
+
 log "APPLIED profile=${profile} node=${node_id} hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null) OK"
