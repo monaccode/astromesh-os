@@ -86,17 +86,19 @@ ensure_otelcol() {
     log "otelcol staged -> dist/otelcol"
 }
 
-# Fase 4.4: compile the eBPF object on the HOST (mkosi postinst has no clang/network) and stage it at
-# WORKDIR/dist/egress_acct.bpf.o, which the postinst bakes. Recompile each run (it is fast). The
-# -I<arch> include is required (<linux/bpf.h> -> <asm/types.h> in the arch dir); -D__TARGET_ARCH_x86
-# matches the cloud-amd64 kernel. clang+libbpf-dev installed on demand.
-ensure_ebpf() {
+# Fase 4.4d: build the Rust eBPF control daemon on the HOST (mkosi postinst has no cargo) and stage it at
+# WORKDIR/dist/astromesh-ebpf, which the postinst bakes. libbpf-cargo compiles egress_acct.bpf.c into an
+# embedded skeleton (needs clang + bpftool); libbpf-sys vendors+links libbpf statically (needs
+# libelf-dev/zlib1g-dev). Build deps installed on demand.
+ensure_ebpf_rust() {
+    command -v cargo >/dev/null 2>&1 || apt-get install -y rustc cargo
     command -v clang >/dev/null 2>&1 || apt-get install -y clang libbpf-dev
+    command -v bpftool >/dev/null 2>&1 || apt-get install -y bpftool
+    dpkg -s libelf-dev >/dev/null 2>&1 || apt-get install -y libelf-dev zlib1g-dev pkg-config
+    ( cd "${SRC}/phase4/ebpf/rust" && cargo build --release ) || die "Rust eBPF build failed"
     mkdir -p "${WORKDIR}/dist"
-    clang -O2 -g -target bpf -D__TARGET_ARCH_x86 -I/usr/include/x86_64-linux-gnu \
-        -c "${SRC}/phase4/ebpf/egress_acct.bpf.c" \
-        -o "${WORKDIR}/dist/egress_acct.bpf.o" || die "eBPF compile failed"
-    log "egress_acct.bpf.o staged -> dist/"
+    install -m 0755 "${SRC}/phase4/ebpf/rust/target/release/astromesh-ebpf" "${WORKDIR}/dist/astromesh-ebpf"
+    log "astromesh-ebpf staged -> dist/"
 }
 
 build_v() {  # $1=version  $2=extra "VAR=val" env (optional)

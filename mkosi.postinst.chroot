@@ -287,28 +287,17 @@ else
     echo "[postinst] no dist/otelcol — OTel collector NOT baked (non-otel build)"
 fi
 
-# Fase 4.4: eBPF per-flow egress accounting. The compiled object is a BUILD INPUT at ${SRC}/dist/
-# egress_acct.bpf.o (host/CI builds it with clang; the postinst has no clang). Baked + enabled ONLY
-# when the object is staged, so non-ebpf builds carry nothing. The units are also guarded at runtime.
-EBPF_OBJ="${SRC}/dist/egress_acct.bpf.o"
-if [ -f "${EBPF_OBJ}" ]; then
-    install -d /usr/lib/astromesh-os/ebpf
-    install -m 0644 "${EBPF_OBJ}" /usr/lib/astromesh-os/ebpf/egress_acct.bpf.o
-    install -m 0755 "${SRC}/phase4/ebpf/egress-acct.sh" /usr/lib/astromesh-os/ebpf/egress-acct.sh
-    install -m 0755 "${SRC}/phase4/ebpf/egress-acct-dump.sh" /usr/lib/astromesh-os/ebpf/egress-acct-dump.sh
-    install -m 0644 "${SRC}/phase4/ebpf/egress-acct.service" /etc/systemd/system/egress-acct.service
-    install -m 0644 "${SRC}/phase4/ebpf/egress-acct-dump.service" /etc/systemd/system/egress-acct-dump.service
-    install -m 0644 "${SRC}/phase4/ebpf/egress-acct-dump.timer" /etc/systemd/system/egress-acct-dump.timer
-    systemctl enable egress-acct.service
-    systemctl enable egress-acct-dump.timer
-    # Fase 4.4b: the OTLP exporter (root, reuses the venv) pushes the flow map as OTLP metrics to the
-    # 4.3 collector. Guarded at runtime on BOTH ebpf.egress.enabled and observability.otlp.enabled.
-    install -m 0755 "${SRC}/phase4/ebpf/egress-otlp-export.py" /usr/lib/astromesh-os/ebpf/egress-otlp-export.py
-    install -m 0644 "${SRC}/phase4/ebpf/egress-otlp-export.service" /etc/systemd/system/egress-otlp-export.service
-    install -m 0644 "${SRC}/phase4/ebpf/egress-otlp-export.timer" /etc/systemd/system/egress-otlp-export.timer
-    systemctl enable egress-otlp-export.timer
+# Fase 4.4d: Rust eBPF control daemon (libbpf-rs + OTLP). Built on host/CI, shipped as the build-input
+# dist/astromesh-ebpf (the eBPF skeleton is embedded — no separate .bpf.o). Replaces the 4.4/4.4b
+# bash+python+bpftool userspace. Baked only when staged; the daemon is guarded at runtime on BOTH
+# ebpf.egress.enabled and observability.otlp.enabled.
+EBPF_BIN="${SRC}/dist/astromesh-ebpf"
+if [ -f "${EBPF_BIN}" ]; then
+    install -m 0755 "${EBPF_BIN}" /usr/bin/astromesh-ebpf
+    install -m 0644 "${SRC}/phase4/ebpf/astromesh-ebpf.service" /etc/systemd/system/astromesh-ebpf.service
+    systemctl enable astromesh-ebpf.service
 else
-    echo "[postinst] no dist/egress_acct.bpf.o — eBPF egress accounting NOT baked (non-ebpf build)"
+    echo "[postinst] no dist/astromesh-ebpf — Rust eBPF daemon NOT baked (non-ebpf build)"
 fi
 
 echo "[postinst] done (mode=${MODE})"

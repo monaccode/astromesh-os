@@ -1,0 +1,15 @@
+[Unit]
+Description=Astromesh OS Fase 4.4d Rust eBPF control daemon (egress accounting -> OTLP)
+After=astromeshd.service otel-collector.service
+Wants=astromeshd.service otel-collector.service
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/astromesh-ebpf
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
