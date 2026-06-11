@@ -26,13 +26,22 @@ if [ "${OOM}" != "kill" ]; then log "FAIL: OOMPolicy is '${OOM:-none}', expected
 # POSITIVE-OOM: a single 512M allocation under a transient MemoryMax=64M scope (no swap) cannot succeed —
 # the kernel cgroup-OOM-kills it. rc != 0 == contained; rc == 0 == the limit did NOT enforce.
 log "POSITIVE-OOM: running a 512M hog under a transient MemoryMax=64M scope (must be contained)"
-rc=0
-systemd-run --scope --quiet -p MemoryMax=64M -p MemorySwapMax=0 \
-    /opt/astromesh/venv/bin/python3 -c 'b = b"x" * (512 * 1024 * 1024)' >/dev/null 2>&1 || rc=$?
-if [ "${rc}" -ne 0 ]; then
-    log "POSITIVE-OOM OK (512M hog contained by the cgroup MemoryMax, rc=${rc}; check + host survived)"
+# Pre-probe: confirm `systemd-run --scope` actually works here, so a non-zero hog exit is attributable to
+# the cgroup OOM kill — not to systemd-run failing for an unrelated reason (no bus / permission), which
+# would otherwise read as a false POSITIVE-OOM PASS.
+probe=0
+systemd-run --scope --quiet /bin/true >/dev/null 2>&1 || probe=$?
+if [ "${probe}" -ne 0 ]; then
+    log "FAIL: systemd-run --scope unavailable (rc=${probe}) — cannot run the POSITIVE-OOM probe"; fail=1
 else
-    log "FAIL: 512M hog COMPLETED under a 64M cgroup limit — kernel not enforcing memory.max"; fail=1
+    rc=0
+    systemd-run --scope --quiet -p MemoryMax=64M -p MemorySwapMax=0 \
+        /opt/astromesh/venv/bin/python3 -c 'b = b"x" * (512 * 1024 * 1024)' >/dev/null 2>&1 || rc=$?
+    if [ "${rc}" -ne 0 ]; then
+        log "POSITIVE-OOM OK (512M hog contained by the cgroup MemoryMax, rc=${rc}; check + host survived)"
+    else
+        log "FAIL: 512M hog COMPLETED under a 64M cgroup limit — kernel not enforcing memory.max"; fail=1
+    fi
 fi
 
 if [ "${fail}" -ne 0 ]; then log "MEMORY FAILED"; exit 1; fi
