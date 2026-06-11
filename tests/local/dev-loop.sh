@@ -298,6 +298,16 @@ case "${TARGET}" in
     bash tests/boot/otel-export-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
+  otel-metrics)
+    require_kvm; sync_src; ensure_deb; ensure_otelcol
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    build_v 1
+    cd "${WORKDIR}"
+    # 1 VM with an `otel` machine-config; the gate triggers agent runs and asserts the baked otelcol
+    # sidecar logged the exported engine metrics (astromesh.agent.runs + .tokens).
+    bash tests/boot/otel-metrics-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   ebpf-rust)
     require_kvm; sync_src; ensure_deb; ensure_ebpf_rust; ensure_otelcol
     command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
@@ -335,7 +345,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | ebpf-rust | ebpf-control | agent-egress | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | otel-metrics | ebpf-rust | ebpf-control | agent-egress | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
