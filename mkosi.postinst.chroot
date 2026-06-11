@@ -252,6 +252,14 @@ install -m 0644 "${SRC}/phase4/machineconfig/astromesh-machine-config.service" /
 ln -sf /var/lib/astromesh/runtime.yaml "${ETC}/runtime.yaml"
 systemctl enable astromesh-machine-config.service
 
+# §12.7: CRIU checkpoint/restore self-check. Privileged oneshot (no hardening drop-in), guarded by
+# spec.criu.enabled in the active runtime.yaml — inert on non-criu boots. `criu` itself is baked via
+# mkosi Packages. enable is unconditional (the unit self-guards), mirroring the machine-config unit.
+install -d /usr/lib/astromesh-os/criu
+install -m 0755 "${SRC}/phase4/criu/astromesh-criu-gate.sh" /usr/lib/astromesh-os/criu/astromesh-criu-gate.sh
+install -m 0644 "${SRC}/phase4/criu/astromesh-criu-gate.service" /etc/systemd/system/astromesh-criu-gate.service
+systemctl enable astromesh-criu-gate.service
+
 # Fase 4.2: mesh over IPsec. Bake the cluster CA (trust anchor) and the mesh units; all are guarded
 # (no-op unless a mesh-* profile rendered runtime.yaml), so non-mesh boots are unaffected.
 # strongSwan ships AppArmor profiles that confine charon/swanctl to /etc/swanctl, but our creds live
