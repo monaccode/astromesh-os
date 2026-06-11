@@ -1,0 +1,17 @@
+[Unit]
+Description=Astromesh OS §12.7 CRIU checkpoint/restore self-check (guarded by spec.criu.enabled)
+After=astromeshd.service astromesh-machine-config.service
+Wants=astromeshd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# KillMode=process: when this oneshot exits, do NOT kill the cgroup — the CRIU-restored astromeshd is a
+# detached child and must keep running (the MVP restores outside systemd's astromeshd.service unit).
+KillMode=process
+ExecStart=/usr/lib/astromesh-os/criu/astromesh-criu-gate.sh
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
