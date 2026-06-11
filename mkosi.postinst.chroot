@@ -227,6 +227,15 @@ install -m 0755 "${SRC}/phase3/sandbox/astromesh-sandbox-check.sh" /usr/lib/astr
 install -m 0644 "${SRC}/phase3/sandbox/astromesh-sandbox-check.service" /etc/systemd/system/astromesh-sandbox-check.service
 systemctl enable astromesh-sandbox-check.service
 
+# §12.3: memory governance. Always-on cgroup memory limits on astromeshd (MemoryMax/High, OOMPolicy=kill,
+# Restart) via a drop-in, plus a fail-closed self-check that verifies the kernel enforces cgroup memory
+# limits (POSITIVE-OOM). Same shape as the 3.4 sandbox: drop-in + Requires=-gated self-check.
+install -d /etc/systemd/system/astromeshd.service.d
+install -m 0644 "${SRC}/phase4/memory/50-memory.conf" /etc/systemd/system/astromeshd.service.d/50-memory.conf
+install -m 0755 "${SRC}/phase4/memory/astromesh-memory-check.sh" /usr/lib/astromesh-os/astromesh-memory-check.sh
+install -m 0644 "${SRC}/phase4/memory/astromesh-memory-check.service" /etc/systemd/system/astromesh-memory-check.service
+systemctl enable astromesh-memory-check.service
+
 # Fase 3.5: egress governance. Deny-by-default IP filtering on astromeshd via systemd
 # IPAddressDeny/Allow (cgroup-BPF) + the fail-closed self-check. Additive to 3.2/3.3/3.4.
 install -d /etc/systemd/system/astromeshd.service.d
