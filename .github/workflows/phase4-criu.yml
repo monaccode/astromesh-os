@@ -1,9 +1,10 @@
 name: phase4-criu
 
-# NOTE: the gate proves OTLP EXPORT end-to-end, which needs the Fase 4.3 node-source change (OTLP
-# bridge activation) in the runtime. CI builds the .deb from monaccode/astromesh at the ref pinned in
-# runtime.pin — so this workflow is green only once those node changes are merged there AND runtime.pin
-# is bumped to a ref that includes them. The local gate (dev-loop.sh otel) uses a locally rebuilt .deb.
+# NOTE: §12.7 is OS-only — it needs NO runtime/node change. The gate proves CRIU checkpoint/restore of
+# astromeshd end-to-end (dump --leave-running -> systemctl stop -> restore -d; uptime continuity + a
+# post-restore agent run). `criu` is baked via mkosi Packages; the in-guest astromesh-criu-gate oneshot
+# runs the cycle. Requires KVM + a CHECKPOINT_RESTORE-capable kernel (the Debian cloud kernel). The local
+# gate is `dev-loop.sh criu`. The CRIU flag set is an empirical iteration item (see the orchestrator).
 
 on:
   push:
