@@ -1,0 +1,15 @@
+[Unit]
+Description=Astromesh OS §12.3 memory governance self-check (cgroup MemoryMax + POSITIVE-OOM, fail-closed)
+# Runs BEFORE astromeshd, which Requires= this unit (see 50-memory.conf): if memory governance can't be
+# verified, THIS unit fails -> astromeshd's Requires= fails -> astromeshd does not start (fail-closed).
+Before=astromeshd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/astromesh-memory-check.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
