@@ -95,4 +95,4 @@ jobs:
       - name: "Gate: memory governance + POSITIVE-OOM"
         run: |
           qemu-img convert -O qcow2 "image/v1.raw" memory.qcow2
-          bash tests/boot/memory-oom-and-assert.sh memory.qcow2
+          sudo bash tests/boot/memory-oom-and-assert.sh memory.qcow2
