@@ -147,4 +147,23 @@ PY
     log "ebpf egress accounting enabled (spec.ebpf.egress.enabled=true)"
 fi
 
+# §12.7: if the machine-config asks for CRIU checkpoint/restore (criu: true), set the runtime flag so the
+# guarded astromesh-criu-gate unit runs the C/R cycle on this boot. Same pattern as the 4.3 otel flag.
+criu=$(/opt/astromesh/venv/bin/python3 - "${CRED}" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1])) or {}
+print(str(d.get("criu", "")).strip().lower())
+PY
+)
+if [ "${criu}" = "true" ] || [ "${criu}" = "1" ]; then
+    /opt/astromesh/venv/bin/python3 - "${RUNTIME_YAML}" <<'PY'
+import sys, yaml
+path = sys.argv[1]
+d = yaml.safe_load(open(path)) or {}
+d.setdefault("spec", {}).setdefault("criu", {})["enabled"] = True
+yaml.safe_dump(d, open(path, "w"), sort_keys=False)
+PY
+    log "criu C/R enabled (spec.criu.enabled=true)"
+fi
+
 log "APPLIED profile=${profile} node=${node_id} hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null) OK"
