@@ -236,6 +236,15 @@ install -m 0755 "${SRC}/phase4/memory/astromesh-memory-check.sh" /usr/lib/astrom
 install -m 0644 "${SRC}/phase4/memory/astromesh-memory-check.service" /etc/systemd/system/astromesh-memory-check.service
 systemctl enable astromesh-memory-check.service
 
+# §12.2a: sched_ext. Guarded loader (runs an scx scheduler when spec.sched_ext.enabled) + self-check.
+# `scx` is baked via mkosi Packages. enable is unconditional (the units self-guard), like the otel units.
+install -d /usr/lib/astromesh-os/schedext
+install -m 0755 "${SRC}/phase4/schedext/astromesh-schedext.sh" /usr/lib/astromesh-os/schedext/astromesh-schedext.sh
+install -m 0755 "${SRC}/phase4/schedext/astromesh-schedext-check.sh" /usr/lib/astromesh-os/schedext/astromesh-schedext-check.sh
+install -m 0644 "${SRC}/phase4/schedext/astromesh-schedext.service" /etc/systemd/system/astromesh-schedext.service
+install -m 0644 "${SRC}/phase4/schedext/astromesh-schedext-check.service" /etc/systemd/system/astromesh-schedext-check.service
+systemctl enable astromesh-schedext.service astromesh-schedext-check.service
+
 # Fase 3.5: egress governance. Deny-by-default IP filtering on astromeshd via systemd
 # IPAddressDeny/Allow (cgroup-BPF) + the fail-closed self-check. Additive to 3.2/3.3/3.4.
 install -d /etc/systemd/system/astromeshd.service.d

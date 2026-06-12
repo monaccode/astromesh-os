@@ -166,4 +166,23 @@ PY
     log "criu C/R enabled (spec.criu.enabled=true)"
 fi
 
+# §12.2a: if the machine-config asks for sched_ext (sched_ext: true), set the runtime flag so the guarded
+# schedext loader+check run on this boot. Same pattern as the 4.3 otel flag.
+sched_ext=$(/opt/astromesh/venv/bin/python3 - "${CRED}" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1])) or {}
+print(str(d.get("sched_ext", "")).strip().lower())
+PY
+)
+if [ "${sched_ext}" = "true" ] || [ "${sched_ext}" = "1" ]; then
+    /opt/astromesh/venv/bin/python3 - "${RUNTIME_YAML}" <<'PY'
+import sys, yaml
+path = sys.argv[1]
+d = yaml.safe_load(open(path)) or {}
+d.setdefault("spec", {}).setdefault("sched_ext", {})["enabled"] = True
+yaml.safe_dump(d, open(path, "w"), sort_keys=False)
+PY
+    log "sched_ext enabled (spec.sched_ext.enabled=true)"
+fi
+
 log "APPLIED profile=${profile} node=${node_id} hostname=$(cat /proc/sys/kernel/hostname 2>/dev/null) OK"
