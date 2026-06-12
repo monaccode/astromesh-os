@@ -298,6 +298,16 @@ case "${TARGET}" in
     bash tests/boot/otel-export-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
+  schedext)
+    require_kvm; sync_src; ensure_deb
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    build_v 1
+    cd "${WORKDIR}"
+    # 1 VM with a `sched_ext: true` machine-config; the in-guest loader runs an scx scheduler and the
+    # gate asserts a custom CPU scheduler is active + astromeshd functional under it.
+    bash tests/boot/schedext-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   otel-metrics)
     require_kvm; sync_src; ensure_deb; ensure_otelcol
     command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
@@ -345,7 +355,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | otel-metrics | ebpf-rust | ebpf-control | agent-egress | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | otel-metrics | schedext | ebpf-rust | ebpf-control | agent-egress | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
