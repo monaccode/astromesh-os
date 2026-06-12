@@ -232,6 +232,17 @@ case "${TARGET}" in
     bash tests/boot/sandbox-and-assert.sh sandbox.qcow2
     ;;
 
+  memory)
+    require_kvm; sync_src; ensure_deb
+    # Same stale-server guard as sandbox: a leftover :HTTP_PORT server would auto-update this v1 and
+    # reboot before the memory self-check runs.
+    pkill -f "http.server ${HTTP_PORT}" 2>/dev/null || true
+    build_v 1
+    cd "${WORKDIR}"
+    qemu-img convert -O qcow2 "mkosi.output/${IMAGE_ID}_1.raw" memory.qcow2
+    bash tests/boot/memory-oom-and-assert.sh memory.qcow2
+    ;;
+
   egress)
     require_kvm; sync_src; ensure_deb
     # Same stale-server guard as sandbox/confine: a leftover :HTTP_PORT server would auto-update this
@@ -355,7 +366,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | otel-metrics | criu | ebpf-rust | ebpf-control | agent-egress | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | memory | egress | secureboot | machineconfig | mesh | tpm | otel | otel-metrics | criu | ebpf-rust | ebpf-control | agent-egress | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
