@@ -1,0 +1,14 @@
+[Unit]
+Description=Astromesh OS §12.2a sched_ext self-check (SUPPORTED + ACTIVE + FUNCTIONAL)
+After=astromesh-schedext.service astromeshd.service
+Wants=astromesh-schedext.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/astromesh-os/schedext/astromesh-schedext-check.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

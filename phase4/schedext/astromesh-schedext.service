@@ -1,0 +1,15 @@
+[Unit]
+Description=Astromesh OS §12.2a sched_ext loader (guarded by spec.sched_ext.enabled; runs an scx scheduler)
+After=astromesh-machine-config.service
+Before=astromesh-schedext-check.service
+
+[Service]
+Type=exec
+ExecStart=/usr/lib/astromesh-os/schedext/astromesh-schedext.sh
+# While this process runs, the BPF scheduler is attached. On exit, the kernel reverts to CFS.
+Restart=no
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
