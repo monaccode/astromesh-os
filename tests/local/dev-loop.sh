@@ -308,6 +308,16 @@ case "${TARGET}" in
     bash tests/boot/otel-metrics-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
     ;;
 
+  criu)
+    require_kvm; sync_src; ensure_deb
+    command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
+    build_v 1
+    cd "${WORKDIR}"
+    # 1 VM with a `criu: true` machine-config; the in-guest astromesh-criu-gate oneshot dumps+restores
+    # astromeshd and the gate asserts uptime continuity + a post-restore agent run.
+    bash tests/boot/criu-cr-and-assert.sh "mkosi.output/${IMAGE_ID}_1.raw"
+    ;;
+
   ebpf-rust)
     require_kvm; sync_src; ensure_deb; ensure_ebpf_rust; ensure_otelcol
     command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
@@ -345,7 +355,7 @@ case "${TARGET}" in
     ;;
 
   *)
-    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | otel-metrics | ebpf-rust | ebpf-control | agent-egress | inspect | clean)"
+    die "unknown target '${TARGET}' (use: build | boot | update | rollback | noshell | confine | sandbox | egress | secureboot | machineconfig | mesh | tpm | otel | otel-metrics | criu | ebpf-rust | ebpf-control | agent-egress | inspect | clean)"
     ;;
 esac
 log "done (${TARGET})"
