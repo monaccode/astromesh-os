@@ -87,6 +87,13 @@ jobs:
           path: image
       - name: Install QEMU + curl
         run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 curl qemu-utils
-      - run: qemu-img convert -O qcow2 image/*.raw phase0.qcow2
+      - name: Convert raw to qcow2
+        run: |
+          # See phase0-ci.yml: SplitArtifacts emits per-partition .raw files; a bare *.raw glob
+          # makes qemu-img concatenate them (ESP first) and corrupt the GPT. Pick the combined
+          # disk (the only .raw without a partition infix).
+          RAW=$(ls image/*.raw | grep -vE '\.(esp|var|root-[^.]*)\.raw$')
+          echo "[boot] combined disk: ${RAW}"
+          qemu-img convert -O qcow2 "${RAW}" phase0.qcow2
       - name: Run boot gate against real OpenAI
         run: bash tests/boot/run-and-assert.sh phase0.qcow2

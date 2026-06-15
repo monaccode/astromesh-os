@@ -103,5 +103,8 @@ jobs:
             exit 0
           fi
           echo "${DOCKERHUB_TOKEN}" | oras login docker.io -u monaccode --password-stdin
-          RAW=$(ls image/*.raw | head -1)
+          # SplitArtifacts emits per-partition .raw files alongside the full disk; `head -1`
+          # would pick the alphabetically-first split (.esp.raw), not the bootable disk. Select
+          # the combined disk: the only .raw without a partition infix (.esp/.var/.root-*).
+          RAW=$(ls image/*.raw | grep -vE '\.(esp|var|root-[^.]*)\.raw$')
           ORAS_TAG="${ORAS_TAG#v}" bash cloud/oras/push.sh "${RAW}"

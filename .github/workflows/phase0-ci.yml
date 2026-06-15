@@ -101,7 +101,15 @@ jobs:
       - name: Install QEMU + curl
         run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 curl qemu-utils ovmf
       - name: Convert raw to qcow2
-        run: qemu-img convert -O qcow2 image/*.raw phase0.qcow2
+        run: |
+          # SplitArtifacts=uki,partitions emits per-partition .raw files (.esp/.var/.root-*)
+          # alongside the full disk. A bare image/*.raw glob feeds ALL of them to qemu-img,
+          # which concatenates them (ESP sorts first → the GPT lands at the wrong offset → the
+          # verity hash PARTUUID never appears → initrd drops to emergency and /v1/health never
+          # comes up). Select the combined disk: the only .raw without a partition infix.
+          RAW=$(ls image/*.raw | grep -vE '\.(esp|var|root-[^.]*)\.raw$')
+          echo "[boot] combined disk: ${RAW}"
+          qemu-img convert -O qcow2 "${RAW}" phase0.qcow2
       - name: Enable KVM access
         run: sudo chmod 666 /dev/kvm 2>/dev/null || echo "no /dev/kvm; will fall back to TCG"
       - name: Run boot gate
