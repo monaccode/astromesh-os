@@ -72,7 +72,9 @@ jobs:
       - name: Build image
         env:
           PHASE0_MODE: stub
-        run: mkosi --image-version=1 build
+        run: |
+          chmod 0600 phase3/secureboot/db.key  # git can't store 0600; mkosi rejects a looser SecureBootKey
+          mkosi --image-version=1 build
       - run: mkdir -p out && cp mkosi.output/astromesh-os-phase0_1.raw out/v1.raw
       - uses: actions/upload-artifact@v4
         with:

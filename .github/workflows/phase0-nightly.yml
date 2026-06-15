@@ -68,7 +68,9 @@ jobs:
         env:
           PHASE0_MODE: real
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: mkosi build
+        run: |
+          chmod 0600 phase3/secureboot/db.key  # git can't store 0600; mkosi rejects a looser SecureBootKey
+          mkosi build
       - uses: actions/upload-artifact@v4
         with:
           name: phase0-image-real

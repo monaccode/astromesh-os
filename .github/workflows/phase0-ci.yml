@@ -78,7 +78,9 @@ jobs:
       - name: Build image (stub mode)
         env:
           PHASE0_MODE: stub
-        run: mkosi build
+        run: |
+          chmod 0600 phase3/secureboot/db.key  # git can't store 0600; mkosi rejects a looser SecureBootKey
+          mkosi build
       - name: Upload disk image
         uses: actions/upload-artifact@v4
         with:
