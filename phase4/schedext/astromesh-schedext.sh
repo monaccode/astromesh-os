@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # §12.2a sched_ext loader wrapper. Guarded: no-op unless the active runtime.yaml has
-# spec.sched_ext.enabled: true. On a schedext boot it auto-detects an scx scheduler binary (from the
-# baked `scx` package) and execs it in the FOREGROUND — while this process lives, the BPF scheduler is
+# spec.sched_ext.enabled: true. On a schedext boot it auto-detects an scx scheduler binary (the
+# source-built dist/scx_simple baked to /usr/bin) and execs it in the FOREGROUND — while this process lives, the BPF scheduler is
 # attached; if it dies, the kernel's sched_ext watchdog reverts to CFS. Runs privileged (loading a
 # struct_ops BPF scheduler needs full caps), so this unit carries NO hardening drop-in.
 set -uo pipefail
@@ -20,7 +20,7 @@ PYEOF
 )
 if [ "${en}" != "true" ]; then log "no es boot schedext; skipping"; exit 0; fi
 
-# Auto-detect an scx scheduler binary (the Debian `scx` package may ship any of these).
+# Auto-detect an scx scheduler binary (scx_simple is the one baked from source; others tolerated).
 SCHED=""
 for cand in scx_simple scx_bpfland scx_rusty scx_lavd; do
     if command -v "${cand}" >/dev/null 2>&1; then SCHED="${cand}"; break; fi

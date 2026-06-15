@@ -236,14 +236,24 @@ install -m 0755 "${SRC}/phase4/memory/astromesh-memory-check.sh" /usr/lib/astrom
 install -m 0644 "${SRC}/phase4/memory/astromesh-memory-check.service" /etc/systemd/system/astromesh-memory-check.service
 systemctl enable astromesh-memory-check.service
 
-# §12.2a: sched_ext. Guarded loader (runs an scx scheduler when spec.sched_ext.enabled) + self-check.
-# `scx` is baked via mkosi Packages. enable is unconditional (the units self-guard), like the otel units.
-install -d /usr/lib/astromesh-os/schedext
-install -m 0755 "${SRC}/phase4/schedext/astromesh-schedext.sh" /usr/lib/astromesh-os/schedext/astromesh-schedext.sh
-install -m 0755 "${SRC}/phase4/schedext/astromesh-schedext-check.sh" /usr/lib/astromesh-os/schedext/astromesh-schedext-check.sh
-install -m 0644 "${SRC}/phase4/schedext/astromesh-schedext.service" /etc/systemd/system/astromesh-schedext.service
-install -m 0644 "${SRC}/phase4/schedext/astromesh-schedext-check.service" /etc/systemd/system/astromesh-schedext-check.service
-systemctl enable astromesh-schedext.service astromesh-schedext-check.service
+# §12.2a: sched_ext. The scx_simple scheduler is NOT packaged in Debian trixie — it is built from source
+# on the host/CI (phase4/schedext/build-scx-simple.sh) and shipped as the build-input dist/scx_simple,
+# baked to /usr/bin/scx_simple ONLY when staged — so non-schedext builds carry no scheduler and no size
+# cost. The guarded loader (runs scx_simple when spec.sched_ext.enabled) + self-check units are installed
+# alongside it. Same conditional-bake model as dist/otelcol and dist/astromesh-ebpf; the units also
+# self-guard on the flag at runtime.
+SCX_BIN="${SRC}/dist/scx_simple"
+if [ -x "${SCX_BIN}" ]; then
+    install -m 0755 "${SCX_BIN}" /usr/bin/scx_simple
+    install -d /usr/lib/astromesh-os/schedext
+    install -m 0755 "${SRC}/phase4/schedext/astromesh-schedext.sh" /usr/lib/astromesh-os/schedext/astromesh-schedext.sh
+    install -m 0755 "${SRC}/phase4/schedext/astromesh-schedext-check.sh" /usr/lib/astromesh-os/schedext/astromesh-schedext-check.sh
+    install -m 0644 "${SRC}/phase4/schedext/astromesh-schedext.service" /etc/systemd/system/astromesh-schedext.service
+    install -m 0644 "${SRC}/phase4/schedext/astromesh-schedext-check.service" /etc/systemd/system/astromesh-schedext-check.service
+    systemctl enable astromesh-schedext.service astromesh-schedext-check.service
+else
+    echo "[postinst] no dist/scx_simple — sched_ext scheduler NOT baked (non-schedext build)"
+fi
 
 # Fase 3.5: egress governance. Deny-by-default IP filtering on astromeshd via systemd
 # IPAddressDeny/Allow (cgroup-BPF) + the fail-closed self-check. Additive to 3.2/3.3/3.4.

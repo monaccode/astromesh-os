@@ -68,10 +68,16 @@ jobs:
         run: |
           apt-get update
           apt-get install -y mkosi systemd-ukify systemd-boot mtools dosfstools ca-certificates curl
+      - name: Build scx_simple (sched_ext scheduler — not packaged in trixie)
+        run: |
+          apt-get install -y git make clang llvm bpftool libbpf-dev libelf-dev zlib1g-dev libzstd-dev pkg-config pahole
+          bash phase4/schedext/build-scx-simple.sh dist/scx_simple
       - name: Build image
         env:
           PHASE0_MODE: stub
-        run: mkosi --image-version=1 build
+        run: |
+          chmod 0600 phase3/secureboot/db.key  # git can't store 0600; mkosi rejects a looser SecureBootKey
+          mkosi --image-version=1 build
       - run: mkdir -p out && cp mkosi.output/astromesh-os-phase0_1.raw out/v1.raw
       - uses: actions/upload-artifact@v4
         with:

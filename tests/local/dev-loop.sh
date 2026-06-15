@@ -101,6 +101,27 @@ ensure_ebpf_rust() {
     log "astromesh-ebpf staged -> dist/"
 }
 
+# §12.2a: build scx_simple (the sched_ext example scheduler) on the HOST and stage it at
+# WORKDIR/dist/scx_simple, which the postinst bakes (conditionally) to /usr/bin/scx_simple. scx is NOT
+# packaged in Debian trixie, so it is built from source — same build-input model as ensure_otelcol /
+# ensure_ebpf_rust. Cached by tag under CACHE (built once); build deps installed on demand.
+ensure_scx() {
+    local tag=v1.0.20
+    local cache_bin="${CACHE}/scx_simple-${tag}"
+    if [ ! -x "${cache_bin}" ]; then
+        log "building scx_simple (scx ${tag}) — not packaged in trixie (first run clones scx + compiles BPF)"
+        command -v clang   >/dev/null 2>&1 || apt-get install -y clang llvm
+        command -v bpftool >/dev/null 2>&1 || apt-get install -y bpftool
+        command -v make    >/dev/null 2>&1 || apt-get install -y build-essential
+        dpkg -s libbpf-dev >/dev/null 2>&1 || apt-get install -y libbpf-dev libelf-dev zlib1g-dev libzstd-dev pkg-config pahole
+        mkdir -p "${CACHE}"
+        SCX_TAG="${tag}" bash "${SRC}/phase4/schedext/build-scx-simple.sh" "${cache_bin}" || die "scx_simple build failed"
+    fi
+    mkdir -p "${WORKDIR}/dist"
+    install -m 0755 "${cache_bin}" "${WORKDIR}/dist/scx_simple"
+    log "scx_simple staged -> dist/scx_simple"
+}
+
 build_v() {  # $1=version  $2=extra "VAR=val" env (optional)
     # --force is required: `mkosi build` SKIPS when the output image already exists
     # ("exists already. Use --force to rebuild."), which would silently reuse a stale
@@ -310,7 +331,7 @@ case "${TARGET}" in
     ;;
 
   schedext)
-    require_kvm; sync_src; ensure_deb
+    require_kvm; sync_src; ensure_deb; ensure_scx
     command -v swtpm >/dev/null 2>&1 || apt-get install -y swtpm
     build_v 1
     cd "${WORKDIR}"
