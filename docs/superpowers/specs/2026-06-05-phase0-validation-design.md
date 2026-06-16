@@ -72,7 +72,7 @@ astromesh-os/
 │       └── run-and-assert.sh           # arranca QEMU, hostfwd :8000, curl health+run, asserts
 ├── .github/workflows/
 │   ├── phase0-ci.yml                   # push: build .deb → build imagen (stub) → boot → gate
-│   └── phase0-nightly.yml              # nightly: build imagen (real) → boot → query a api.openai.com
+│   └── phase0-nightly.yml              # nightly: build imagen (real) → boot → query a api.moonshot.ai (Kimi)
 └── docs/superpowers/specs/
     ├── 2026-06-05-astromesh-os-decomposition-design.md
     └── 2026-06-05-phase0-validation-design.md   (este)
@@ -120,12 +120,12 @@ spec:
     max_iterations: 2
     timeout: 30
 ```
-> El modelo (`gpt-4o-mini`) lo sirve el stub en CI y OpenAI real en nightly — el agente no cambia entre modos; sólo cambia el `endpoint` en `providers.yaml`.
+> El modelo lo sirve el stub (`gpt-4o-mini`) en CI y **Kimi (`kimi-k2.5`, Moonshot) real** en nightly — el agente no cambia entre modos; sólo cambian `endpoint`/`model`/`api_key_env`. *(Actualizado 2026-06-16: el nightly migró de OpenAI a Kimi/Moonshot, OpenAI-compatible.)*
 
 ### 5.4 `providers.yaml` (Fase 0)
 `openai` de tipo `openai_compat` con `endpoint` parametrizable:
 - **CI:** `endpoint: http://127.0.0.1:8081/v1`, `api_key_env: OPENAI_API_KEY` (valor dummy).
-- **Nightly:** `endpoint: https://api.openai.com/v1`, `OPENAI_API_KEY` real (Secret).
+- **Nightly:** `endpoint: https://api.moonshot.ai/v1` (Kimi/Moonshot, OpenAI-compatible), `MOONSHOT_API_KEY` real (Secret).
 El postinst (o un drop-in) selecciona la variante según un build-arg `PHASE0_MODE={stub|real}`.
 
 ### 5.5 Stub OpenAI-compatible (`tests/stub-openai/`)
@@ -150,7 +150,7 @@ El postinst (o un drop-in) selecciona la variante según un build-arg `PHASE0_MO
 - **Job C `boot-gate`** (needs B): instalar QEMU; `tests/boot/run-and-assert.sh`. Falla el workflow si el gate duro no pasa.
 
 ### `phase0-nightly.yml` (cron diario + manual)
-- Igual que arriba con `PHASE0_MODE=real`; `OPENAI_API_KEY` desde `secrets`; QEMU con red saliente. Valida la query frontier **real** contra `api.openai.com`. Su fallo **no** bloquea PRs (es señal, no gate de merge).
+- Igual que arriba con `PHASE0_MODE=real`; `MOONSHOT_API_KEY` desde `secrets`; QEMU con red saliente. Valida la query frontier **real** contra Kimi (`api.moonshot.ai`, `kimi-k2.5`). Su fallo **no** bloquea PRs (es señal, no gate de merge).
 
 > **mkosi en CI:** requiere privilegios (loop devices). Usar runner Ubuntu con `sudo`; documentar los flags (`--debug`, `ToolsTree` si hace falta) en el workflow.
 
@@ -172,7 +172,7 @@ El postinst (o un drop-in) selecciona la variante según un build-arg `PHASE0_MO
 ## 8. Definición de "hecho" (Fase 0) — ✅ CUMPLIDA (2026-06-05)
 
 - [x] `phase0-ci.yml` verde: imagen booteable + `/v1/health` 200 + `phase0-smoke` responde (vía stub). *(run 27027974832; agente devolvió `{"answer":"pong"}` vía provider `openai_compat`→stub `gpt-4o-mini`).*
-- [ ] `phase0-nightly.yml` verde al menos una vez: misma cadena contra OpenAI real. *(Pendiente: requiere el secret `OPENAI_API_KEY`; diferido por decisión del usuario — el workflow existe y está listo).*
+- [x] `phase0-nightly.yml` verde: misma cadena contra **Kimi real** (`kimi-k2.5`, Moonshot). *(green 2026-06-16, run 27594641970; secret `MOONSHOT_API_KEY`. Real-mode against an external provider required a layered fix: DHCP-lease DNS resolver, disabling strongSwan's resolv clobber, an AppArmor read rule for /run/resolv.conf, and a real-mode Cloudflare-CDN egress allowlist.)*
 - [x] `runtime.pin` fija un SHA exacto y CI lo resuelve. *(`ASTROMESH_REF=d83e36a…`; build del `.deb` `astromesh-node_0.1.1`).*
 - [x] Primer boot confirmado: `astromeshd` queda `active` y sirve `:8000` sin postgres/redis. *(arranca en "dev mode", carga 7 agentes, `Notified systemd: READY`).*
 - [x] Documentado cómo correr el build localmente. *(README: build vía contenedor Docker — no hay distro WSL general en el host).*

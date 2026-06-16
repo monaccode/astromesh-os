@@ -96,5 +96,5 @@ jobs:
           RAW=$(ls image/*.raw | grep -vE '\.(esp|var|root-[^.]*)\.raw$')
           echo "[boot] combined disk: ${RAW}"
           qemu-img convert -O qcow2 "${RAW}" phase0.qcow2
-      - name: Run boot gate against real OpenAI
+      - name: Run boot gate against real Moonshot/Kimi
         run: bash tests/boot/run-and-assert.sh phase0.qcow2
