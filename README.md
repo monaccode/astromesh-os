@@ -4,11 +4,32 @@ Minimal, immutable, API-only Linux distribution (appliance) whose sole purpose i
 running Astromesh AI agents (`astromeshd`). See the design docs in
 `docs/superpowers/specs/`.
 
-## Status: Fase 0 (validación del unit)
+## Status
 
-Phase 0 builds a **standard** Debian-trixie mkosi image that runs Astromesh-core as a
-systemd service and answers one agent query. It is intentionally NOT minimal/immutable
-yet — that is Fase 1+.
+The roadmap (`docs/superpowers/specs/2026-06-05-astromesh-os-decomposition-design.md` §4)
+is implemented through **Fase 4 + post-4**, all merged to `main`:
+
+| Fase | Capability | Gate |
+|------|-----------|------|
+| **0** | Astromesh-core as a systemd service; boot-to-agent | `phase0-ci` (boot + agent, per-push on `main`) |
+| **1** | Minimal image (≤ 500 MB; ~285 MB) + OCI publish via ORAS | `phase1-publish` |
+| **2** | Immutability: dm-verity RO root, A/B + automatic rollback | dev-loop `update` |
+| **3** | Security: TPM-sealed secrets, no-shell + break-glass, AppArmor, tool sandbox, egress, Secure Boot | `phase3-tpm`, … |
+| **4** | Agent-native + fleet: machine-config, mesh mTLS/IPsec, OTel export, eBPF causal egress | `phase4-{machineconfig,mesh,otel,otel-metrics,ebpf-rust,ebpf-control,agent-egress}` |
+| **post-4** | §12.3 cgroup memory governance, §12.7 CRIU checkpoint/restore, §12.2a sched_ext¹ | `phase4-{memory,criu,schedext}` |
+
+Runtime pinned to **astromesh `v0.28.7`** (`runtime.pin`) — the v0.28.6 mainline plus the
+Fase 4 OTel/metrics/egress runtime work.
+
+¹ **§12.2a sched_ext** is implemented (guarded loader + `scx_simple`, fail-closed, default
+off) but its acceptance gate is **deferred**: Debian's trixie 6.12 kernel ships without
+`CONFIG_SCHED_CLASS_EXT` (confirmed empirically; backports 7.0 has it). Closeable by moving
+the kernel baseline — see the schedext design doc §0.1. **§12.2b GPU broker** is deferred
+(no GPU in the VMs; ships with `sysext-gpu`).
+
+Each phase's acceptance gate builds the image and boots it in QEMU to assert the capability.
+`phase0-ci` runs on every push to `main`; the per-phase `phase{3,4}-*` gates run on their
+feature branches and via `workflow_dispatch`.
 
 ## Build (local, vía Docker)
 
@@ -68,5 +89,7 @@ iteration before push.
 
 ## Bumping the runtime version
 
-Edit `ASTROMESH_REF` in `runtime.pin` to a new commit SHA of `monaccode/astromesh`,
-then re-run CI. The image is reproducible from that exact ref.
+`runtime.pin` pins the exact `monaccode/astromesh` ref built into the image — prefer a
+release tag (e.g. `ASTROMESH_REF=v0.28.7`) over a floating branch tip. CI checks out that
+ref and builds the node `.deb` from source, so the image is reproducible from it. Bump
+deliberately — CI fails if the ref can't be resolved.
