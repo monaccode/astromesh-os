@@ -326,6 +326,42 @@ install -m 0644 "${SRC}/phase3/egress/40-egress.conf" /etc/systemd/system/astrom
 install -m 0755 "${SRC}/phase3/egress/astromesh-egress-check.sh" /usr/lib/astromesh-os/astromesh-egress-check.sh
 install -m 0644 "${SRC}/phase3/egress/astromesh-egress-check.service" /etc/systemd/system/astromesh-egress-check.service
 systemctl enable astromesh-egress-check.service
+# Real-mode only: the provider (Moonshot/Kimi, api.moonshot.ai) is fronted by Cloudflare with
+# rotating IPs, and systemd's IPAddressAllow is IP/CIDR (not hostname) — so allow Cloudflare's
+# published CDN ranges (v4+v6) so astromeshd can egress to the provider. Deliberate, scoped widening
+# for the real-provider smoke test ONLY; stub and production-default builds keep the tight allowlist
+# (loopback/NAT/mesh). Added solely to astromeshd, NOT to the egress self-check — its POSITIVE-BLOCK
+# probe targets 1.1.1.1 (Cloudflare's DNS, a separate range NOT allowed here), so the enforcement
+# proof is unaffected. A separate drop-in (45-) merges over 40-egress.conf. Source: cloudflare.com/ips
+if [ "${MODE}" = "real" ]; then
+    cat > /etc/systemd/system/astromeshd.service.d/45-egress-provider.conf <<'EGRESS'
+[Service]
+# Cloudflare IPv4 CDN ranges
+IPAddressAllow=173.245.48.0/20
+IPAddressAllow=103.21.244.0/22
+IPAddressAllow=103.22.200.0/22
+IPAddressAllow=103.31.4.0/22
+IPAddressAllow=141.101.64.0/18
+IPAddressAllow=108.162.192.0/18
+IPAddressAllow=190.93.240.0/20
+IPAddressAllow=188.114.96.0/20
+IPAddressAllow=197.234.240.0/22
+IPAddressAllow=198.41.128.0/17
+IPAddressAllow=162.158.0.0/15
+IPAddressAllow=104.16.0.0/13
+IPAddressAllow=104.24.0.0/14
+IPAddressAllow=172.64.0.0/13
+IPAddressAllow=131.0.72.0/22
+# Cloudflare IPv6 CDN ranges (api.moonshot.ai resolves into 2606:4700::/32)
+IPAddressAllow=2400:cb00::/32
+IPAddressAllow=2606:4700::/32
+IPAddressAllow=2803:f800::/32
+IPAddressAllow=2405:b500::/32
+IPAddressAllow=2405:8100::/32
+IPAddressAllow=2a06:98c0::/29
+IPAddressAllow=2c0f:f248::/32
+EGRESS
+fi
 
 # Fase 3.6: Secure Boot self-check (emits SB-ENABLED OK under SB; degraded log under non-SB).
 install -m 0755 "${SRC}/phase3/secureboot/secureboot-check.sh" /usr/lib/astromesh-os/secureboot-check.sh
