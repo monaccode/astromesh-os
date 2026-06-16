@@ -67,7 +67,8 @@ jobs:
       - name: Build image (real mode)
         env:
           PHASE0_MODE: real
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Moonshot/Kimi token — set this as a repo Actions secret named MOONSHOT_API_KEY.
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
         run: |
           chmod 0600 phase3/secureboot/db.key  # git can't store 0600; mkosi rejects a looser SecureBootKey
           mkosi build

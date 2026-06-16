@@ -74,7 +74,15 @@ install -m 0640 /dev/null "${ETC}/.env"
 chown root:astromesh "${ETC}/.env"
 if [ "${ASTROMESH_SEAL_SECRET:-0}" = "1" ]; then
     echo "[postinst] ASTROMESH_SEAL_SECRET=1 → provider key not baked (TPM-sealed at first boot)"
+elif [ "${MODE}" = "real" ]; then
+    # Real boot → the agent talks to Moonshot/Kimi (api.moonshot.ai) over the openai_compat
+    # provider; bake the key propagated from CI's MOONSHOT_API_KEY secret (see mkosi.conf
+    # Environment=). If unset, the file carries an empty key and the call fails loudly —
+    # surfacing the missing secret rather than silently using a dummy.
+    echo "MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}" > "${ETC}/.env"
+    chmod 0640 "${ETC}/.env"; chown root:astromesh "${ETC}/.env"
 else
+    # Stub boot → the local stub server ignores the key; a dummy keeps the provider happy.
     echo "OPENAI_API_KEY=${OPENAI_API_KEY:-sk-phase0-stub-dummy}" > "${ETC}/.env"
     chmod 0640 "${ETC}/.env"; chown root:astromesh "${ETC}/.env"
 fi

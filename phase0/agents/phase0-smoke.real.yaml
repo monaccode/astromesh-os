@@ -7,16 +7,21 @@ metadata:
 spec:
   identity:
     display_name: "Phase 0 Smoke Agent"
-    description: "Minimal agent to validate boot-to-agent over an openai_compat provider (real OpenAI endpoint)"
+    description: "Minimal agent to validate boot-to-agent over an openai_compat provider (real Moonshot/Kimi endpoint)"
   model:
     primary:
+      # Moonshot/Kimi exposes an OpenAI-compatible API, so the openai_compat provider
+      # ("openai") works unchanged — only the base endpoint, model and key var change.
       provider: openai
-      endpoint: "https://api.openai.com/v1"
-      model: "gpt-4o-mini"
-      api_key_env: OPENAI_API_KEY
+      endpoint: "https://api.moonshot.ai/v1"
+      model: "kimi-k2.5"
+      api_key_env: MOONSHOT_API_KEY
       parameters:
         temperature: 0.0
-        max_tokens: 64
+        # kimi-k2.5 is a "thinking" model: it spends tokens on reasoning_content before the
+        # answer (the runtime echoes it back). 64 tokens could be consumed entirely by the
+        # reasoning and truncate the answer to empty → the gate's non-empty assert would fail.
+        max_tokens: 1024
   prompts:
     system: "You are a smoke-test agent. Answer concisely."
   orchestration:
