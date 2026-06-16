@@ -1,3 +1,5 @@
 # Pinned ref of github.com/monaccode/astromesh built into the Phase 0 image.
 # Bump deliberately; CI fails if it cannot resolve this ref.
-ASTROMESH_REF=4a9b228311a15d79a63c83abffbdc289e7d33a10
+# v0.28.7: latest release = v0.28.6 mainline + the Fase 4 OTel/metrics/egress runtime
+# work (previously only on the unmerged develop branch at 4a9b2283).
+ASTROMESH_REF=v0.28.7
