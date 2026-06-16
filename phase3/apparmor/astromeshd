@@ -26,6 +26,10 @@ profile astromeshd {
   # covered by abstractions/nameservice above — do not drop that include or egress breaks.
   network inet stream,
   network inet6 stream,
+  # Resolver: /etc/resolv.conf is a symlink to /run/resolv.conf, which astromesh-resolv.service
+  # renders from the DHCP lease (nameservice only whitelists NetworkManager/connman/netconfig/
+  # systemd paths, not this one). Without this read the daemon can't resolve provider hostnames.
+  /run/resolv.conf r,
 
   # Common runtime reads (extend from the complain-mode denials in Task 6, do not pre-allow blindly).
   /proc/sys/kernel/random/uuid r,
