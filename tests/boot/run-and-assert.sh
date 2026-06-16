@@ -61,15 +61,21 @@ done
 echo "[boot] PASS: /v1/health is 200"
 
 echo "[boot] running agent ${AGENT}"
-RESP=$(curl -fsS -X POST "http://localhost:${PORT}/v1/agents/${AGENT}/run" \
+# Capture status + body separately (no -f) so a provider/runtime error surfaces its detail
+# instead of just "curl: (22) ... 502". On failure, dump the body and the in-VM journal
+# (forwarded to the console) — that carries the actual cause (DNS, auth, model, …).
+HTTP=$(curl -sS -o /tmp/agent-resp.json -w '%{http_code}' -X POST "http://localhost:${PORT}/v1/agents/${AGENT}/run" \
     -H 'Content-Type: application/json' \
-    -d '{"query":"ping"}')
-echo "[boot] agent response: ${RESP}"
-if [ -z "${RESP}" ]; then
-    echo "[boot] FAIL: empty agent response"
+    -d '{"query":"ping"}' || true)
+RESP=$(cat /tmp/agent-resp.json 2>/dev/null || true)
+if [ "${HTTP}" != "200" ] || [ -z "${RESP}" ]; then
+    echo "[boot] FAIL: agent run returned HTTP ${HTTP}"
+    echo "----- agent response body -----"; echo "${RESP}"
+    echo "----- qemu-console.log (tail) -----"; tail -n 200 qemu-console.log || true
     exit 1
 fi
-echo "[boot] PASS: agent returned a non-empty response"
+echo "[boot] agent response: ${RESP}"
+echo "[boot] PASS: agent returned a non-empty 200 response"
 
 echo "[boot] doctor (informational):"
 curl -fsS "http://localhost:${PORT}/v1/system/doctor" || echo "[boot] (doctor unavailable)"
