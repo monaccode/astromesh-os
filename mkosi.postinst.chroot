@@ -109,6 +109,62 @@ Name=en* eth*
 DHCP=yes
 NET
 systemctl enable systemd-networkd.service
+# DNS: networkd learns DNS via DHCP, but glibc resolves through /etc/resolv.conf, which the
+# minimal image otherwise lacks → every hostname lookup fails ("Temporary failure in name
+# resolution"); only IP endpoints (stub/OTLP/mesh peers) worked. systemd-resolved would be the
+# canonical fix but it fails to start here (226/NAMESPACE — its sandboxing can't initialize
+# under the read-only verity root). Bake a static resolver instead: a plain /etc/resolv.conf is
+# read-only-safe (no service to fail) and reaches public LLM endpoints (api.moonshot.ai, …) via
+# QEMU NAT and cloud egress alike. Public resolvers since DHCP-provided DNS isn't knowable at
+# build time; revisit if a deployment needs split-horizon/private DNS.
+# DNS: the minimal image has no resolver, and systemd-resolved fails to start here
+# (226/NAMESPACE — its sandboxing can't initialize under the read-only verity root). Use the
+# DNS the network actually provides: a tiny oneshot renders /run/resolv.conf from the
+# systemd-networkd DHCP lease at boot, so it is correct in every environment (QEMU SLIRP hands
+# out 10.0.2.3, clouds hand out their resolver), with a public fallback if the lease carries no
+# DNS. /etc is read-only (verity) so /etc/resolv.conf is a symlink into writable /run.
+ln -sf /run/resolv.conf /etc/resolv.conf
+install -d /usr/lib/astromesh-os
+cat > /usr/lib/astromesh-os/astromesh-resolv.sh <<'RSH'
+#!/bin/sh
+# Render /run/resolv.conf from the networkd DHCP lease DNS servers; fall back to public DNS.
+set -u
+out=/run/resolv.conf; tmp="${out}.tmp"; : > "$tmp"
+# DHCP may not be settled at first run — wait up to ~20s for a lease that carries DNS.
+i=0; while [ "$i" -lt 40 ]; do
+    grep -hs '^DNS=' /run/systemd/netif/leases/* >/dev/null 2>&1 && break
+    i=$((i+1)); sleep 0.5
+done
+for lease in /run/systemd/netif/leases/*; do
+    [ -f "$lease" ] || continue
+    awk -F= '/^DNS=/{n=split($2,a," ");for(j=1;j<=n;j++)print "nameserver "a[j]}' "$lease" >> "$tmp"
+done
+grep -q nameserver "$tmp" || printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' >> "$tmp"
+mv -f "$tmp" "$out"
+echo "[astromesh-resolv] $(tr '\n' ' ' < "$out")"
+RSH
+chmod 0755 /usr/lib/astromesh-os/astromesh-resolv.sh
+cat > /etc/systemd/system/astromesh-resolv.service <<'SVC'
+[Unit]
+Description=Render /run/resolv.conf from the DHCP lease (DNS for hostname endpoints)
+After=systemd-networkd.service
+Wants=systemd-networkd.service
+Before=astromeshd.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/astromesh-os/astromesh-resolv.sh
+[Install]
+WantedBy=multi-user.target
+SVC
+systemctl enable astromesh-resolv.service
+# strongSwan's charon `resolve` plugin rewrites resolv.conf on startup — the strongswan package
+# enables charon, so it runs and would clobber /run/resolv.conf on EVERY boot, even in phase0 with
+# no mesh (observed: "charon-systemd: install DNS servers in '/etc/resolv.conf'"). The static-peer
+# mesh authenticates by certificate and never receives IKE-pushed DNS, so the plugin is unused —
+# disable it so our resolver survives (fixes DNS in mesh mode too).
+install -d /etc/strongswan.d/charon
+printf 'resolve {\n    load = no\n}\n' > /etc/strongswan.d/charon/resolve.conf
 
 # 6. Drop the systemd watchdog for astromeshd. The unit ships WatchdogSec=30 but the
 #    daemon only sends READY=1 (no periodic WATCHDOG=1), so systemd kills it every
