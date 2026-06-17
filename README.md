@@ -10,6 +10,7 @@
 [![CI](https://github.com/monaccode/astromesh-os/actions/workflows/phase0-ci.yml/badge.svg?branch=main)](https://github.com/monaccode/astromesh-os/actions/workflows/phase0-ci.yml)
 [![Publish (OCI)](https://github.com/monaccode/astromesh-os/actions/workflows/phase1-publish.yml/badge.svg)](https://github.com/monaccode/astromesh-os/actions/workflows/phase1-publish.yml)
 [![Built on Debian trixie](https://img.shields.io/badge/built%20on-Debian%20trixie-A81D33?logo=debian&logoColor=white)](https://www.debian.org/)
+[![License](https://img.shields.io/github/license/monaccode/astromesh-os?color=fb923c)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-Astromesh%20OS-fb923c)](https://monaccode.github.io/astromesh/os/introduction/)
 
 </div>
