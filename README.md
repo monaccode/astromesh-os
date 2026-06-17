@@ -1,8 +1,24 @@
-# astromesh-os
+<div align="center">
+
+<img src="docs/astromesh-logo.png" alt="Astromesh" width="220" />
+
+# Astromesh OS
+
+**Minimal, immutable, API-only Linux appliance for running Astromesh AI agents.**
+
+[![OS Tag](https://img.shields.io/github/v/tag/monaccode/astromesh-os?sort=semver&label=version&color=fb923c)](https://github.com/monaccode/astromesh-os/tags)
+[![CI](https://github.com/monaccode/astromesh-os/actions/workflows/phase0-ci.yml/badge.svg?branch=main)](https://github.com/monaccode/astromesh-os/actions/workflows/phase0-ci.yml)
+[![Publish (OCI)](https://github.com/monaccode/astromesh-os/actions/workflows/phase1-publish.yml/badge.svg)](https://github.com/monaccode/astromesh-os/actions/workflows/phase1-publish.yml)
+[![Built on Debian trixie](https://img.shields.io/badge/built%20on-Debian%20trixie-A81D33?logo=debian&logoColor=white)](https://www.debian.org/)
+[![Docs](https://img.shields.io/badge/docs-Astromesh%20OS-fb923c)](https://monaccode.github.io/astromesh/os/introduction/)
+
+</div>
 
 Minimal, immutable, API-only Linux distribution (appliance) whose sole purpose is
-running Astromesh AI agents (`astromeshd`). See the design docs in
-`docs/superpowers/specs/`.
+running Astromesh AI agents (`astromeshd`). Versioned **`v0.4.0`** (semver, like the
+rest of the ecosystem), mature through **Phase 4 + post-4**. See the
+[documentation](https://monaccode.github.io/astromesh/os/introduction/) and the design
+docs in `docs/superpowers/specs/`.
 
 ## Status
 
