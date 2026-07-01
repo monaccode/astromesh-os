@@ -102,7 +102,7 @@ jobs:
             echo "No DOCKERHUB_TOKEN secret — skipping real push (tooling validated)."
             exit 0
           fi
-          echo "${DOCKERHUB_TOKEN}" | oras login docker.io -u monaccode --password-stdin
+          echo "${DOCKERHUB_TOKEN}" | oras login docker.io -u fulfarodev --password-stdin
           # SplitArtifacts emits per-partition .raw files alongside the full disk; `head -1`
           # would pick the alphabetically-first split (.esp.raw), not the bootable disk. Select
           # the combined disk: the only .raw without a partition infix (.esp/.var/.root-*).
