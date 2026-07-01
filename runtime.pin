@@ -2,4 +2,7 @@
 # Bump deliberately; CI fails if it cannot resolve this ref.
 # v0.28.7: latest release = v0.28.6 mainline + the Fase 4 OTel/metrics/egress runtime
 # work (previously only on the unmerged develop branch at 4a9b2283).
-ASTROMESH_REF=v0.28.7
+# v0.28.9: bump to latest release — adds Moonshot/Kimi (kimi-k2.5/k2.6) OpenAI-compat
+# provider support, provider-label cost attribution (v0.28.8) and cache-aware Kimi
+# pricing incl. cache_read_input_tokens (v0.28.9). Tag resolvable on origin.
+ASTROMESH_REF=v0.28.9

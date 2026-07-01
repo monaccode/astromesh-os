@@ -35,8 +35,8 @@ is implemented through **Fase 4 + post-4**, all merged to `main`:
 | **4** | Agent-native + fleet: machine-config, mesh mTLS/IPsec, OTel export, eBPF causal egress | `phase4-{machineconfig,mesh,otel,otel-metrics,ebpf-rust,ebpf-control,agent-egress}` |
 | **post-4** | §12.3 cgroup memory governance, §12.7 CRIU checkpoint/restore, §12.2a sched_ext¹ | `phase4-{memory,criu,schedext}` |
 
-Runtime pinned to **astromesh `v0.28.7`** (`runtime.pin`) — the v0.28.6 mainline plus the
-Fase 4 OTel/metrics/egress runtime work.
+Runtime pinned to **astromesh `v0.28.9`** (`runtime.pin`) — the Fase 4 OTel/metrics/egress
+runtime work plus the Moonshot/Kimi OpenAI-compat provider with cache-aware pricing.
 
 ¹ **§12.2a sched_ext** is implemented (guarded loader + `scx_simple`, fail-closed, default
 off) but its acceptance gate is **deferred**: Debian's trixie 6.12 kernel ships without
@@ -107,6 +107,6 @@ iteration before push.
 ## Bumping the runtime version
 
 `runtime.pin` pins the exact `monaccode/astromesh` ref built into the image — prefer a
-release tag (e.g. `ASTROMESH_REF=v0.28.7`) over a floating branch tip. CI checks out that
+release tag (e.g. `ASTROMESH_REF=v0.28.9`) over a floating branch tip. CI checks out that
 ref and builds the node `.deb` from source, so the image is reproducible from it. Bump
 deliberately — CI fails if the ref can't be resolved.
