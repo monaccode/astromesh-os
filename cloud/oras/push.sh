@@ -4,7 +4,7 @@
 # `docker run`/`docker pull`.
 set -euo pipefail
 
-REPO="${ORAS_REPO:?set ORAS_REPO, e.g. docker.io/monaccode/astromesh-os}"
+REPO="${ORAS_REPO:?set ORAS_REPO, e.g. docker.io/fulfarodev/astromesh-os}"
 TAG="${ORAS_TAG:?set ORAS_TAG, e.g. 0.1.0}"
 RAW="${1:?usage: push.sh <disk.raw>}"
 MEDIA="application/vnd.astromesh.disk.raw"

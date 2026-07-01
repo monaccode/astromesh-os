@@ -95,7 +95,7 @@ jobs:
       - name: Publish artifact (only with DOCKERHUB_TOKEN)
         env:
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-          ORAS_REPO: docker.io/monaccode/astromesh-os
+          ORAS_REPO: docker.io/fulfarodev/astromesh-os
           ORAS_TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}
         run: |
           if [ -z "${DOCKERHUB_TOKEN}" ]; then
