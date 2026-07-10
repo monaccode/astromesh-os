@@ -19,14 +19,14 @@ jobs:
         shell: bash
     steps:
       - name: Checkout astromesh-os
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Read pinned runtime ref
         id: pin
         run: |
           source runtime.pin
           echo "ref=${ASTROMESH_REF}" >> "$GITHUB_OUTPUT"
       - name: Checkout astromesh runtime at pinned ref
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: monaccode/astromesh
           ref: ${{ steps.pin.outputs.ref }}
@@ -50,7 +50,7 @@ jobs:
           mkdir -p dist
           cp _runtime/astromesh-node/dist/astromesh-node_*_amd64.deb dist/
       - name: Upload .deb
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: astromesh-deb
           path: dist/*.deb
@@ -69,9 +69,9 @@ jobs:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Download .deb
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: astromesh-deb
           path: dist
@@ -88,7 +88,7 @@ jobs:
           chmod 0600 phase3/secureboot/db.key  # git can't store 0600; mkosi rejects a looser SecureBootKey
           mkosi build
       - name: Upload disk image
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: phase0-image
           path: mkosi.output/*.raw
@@ -98,9 +98,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Download disk image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: phase0-image
           path: image
