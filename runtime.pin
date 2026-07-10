@@ -5,4 +5,8 @@
 # v0.28.9: bump to latest release — adds Moonshot/Kimi (kimi-k2.5/k2.6) OpenAI-compat
 # provider support, provider-label cost attribution (v0.28.8) and cache-aware Kimi
 # pricing incl. cache_read_input_tokens (v0.28.9). Tag resolvable on origin.
-ASTROMESH_REF=v0.28.9
+# v0.29.0: transversal per-role model routing — one ModelRouter per orchestration
+# role (reasoner/planner/worker/synthesizer/supervisor), undefined roles fall back
+# to `default`; source-aware candidate builder + LiteLLM-backed provider (optional
+# `litellm` extra) for 100+ cloud models. Tag resolvable on origin.
+ASTROMESH_REF=v0.29.0
