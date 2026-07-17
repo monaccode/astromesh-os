@@ -61,10 +61,16 @@ jobs:
         run: |
           apt-get update
           apt-get install -y mkosi systemd-ukify systemd-boot mtools dosfstools ca-certificates
+      # The published artifact is deliberately credential-free: this repo's image is public on
+      # Docker Hub, so any provider key baked into /etc/.env would ship to anyone who can
+      # `oras pull`. No provider key is passed here, so mkosi.postinst.chroot writes an empty
+      # MOONSHOT_API_KEY and the operator provisions the real one at first boot (SMBIOS
+      # credential -> sealed to the TPM, PCR 11 — see phase3/tpm/astromesh-seal-secret.sh).
+      # phase0-nightly is where a real key is exercised: it passes MOONSHOT_API_KEY and does
+      # NOT publish. Do not "fix" this by forwarding a key — that is the leak, not the fix.
       - name: Build image (real mode)
         env:
           PHASE0_MODE: real
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           chmod 0600 phase3/secureboot/db.key  # git can't store 0600; mkosi rejects a looser SecureBootKey
           mkosi build
