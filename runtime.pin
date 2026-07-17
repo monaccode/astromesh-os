@@ -9,4 +9,16 @@
 # role (reasoner/planner/worker/synthesizer/supervisor), undefined roles fall back
 # to `default`; source-aware candidate builder + LiteLLM-backed provider (optional
 # `litellm` extra) for 100+ cloud models. Tag resolvable on origin.
-ASTROMESH_REF=v0.29.0
+# v0.33.0: core OTLP export is finally wired — setup_observability() builds the
+# TelemetryManager/OTLPCollector/MetricsManager from AgentRuntime.bootstrap() under
+# ASTROMESH_OTLP_ENABLED (the classes existed but were never instantiated), and the
+# node's hand-rolled duplicate wiring is gone. Also Orbit v0.3.0/v0.4.0 (not built
+# into the image). Tag resolvable on origin.
+#
+# NOTE: v0.31.0 and v0.32.0 are deliberately skipped — both are unbuildable here.
+# They declare a hard `astromesh-nebula` dependency resolved through a uv source at
+# `../../astromesh-nebula`, a sibling repo that is neither checked out on the runner
+# nor published on PyPI; build-deb.sh uses pip, which ignores [tool.uv.sources], so
+# the .deb build dies on "No matching distribution found for astromesh-nebula".
+# v0.33.0 carries the fix (77bc29f) that makes nebula optional.
+ASTROMESH_REF=v0.33.0
