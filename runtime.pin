@@ -9,6 +9,13 @@
 # role (reasoner/planner/worker/synthesizer/supervisor), undefined roles fall back
 # to `default`; source-aware candidate builder + LiteLLM-backed provider (optional
 # `litellm` extra) for 100+ cloud models. Tag resolvable on origin.
+# v0.35.0: `type: client` tools — the runtime announces them to the model and no longer
+# silently drops non-internal tool types from YAML (loader warns/loads instead of ignoring).
+# Verified before bumping: the v0.34.0..v0.35.0 diff adds NO new import on the boot-sensitive
+# paths (api.main / runtime/engine.py / core/tools.py) — only tool-loading logic — and
+# tests/test_slim_install.py passes 7/7 simulating the extras-less image venv, so api.main
+# still imports clean without numpy/aiosqlite/faiss. This repo's boot gate is the final net.
+# Tag resolvable on origin.
 # v0.34.0: WebSocket wired to the runtime, streaming live run events (tool calls and text)
 # over /v1/ws/agent/{name}. Verified before bumping: the .deb resolves under pip, and the
 # release keeps v0.33.1's lazy imports plus tests/test_slim_install.py, which guards the
@@ -30,4 +37,4 @@
 # nor published on PyPI; build-deb.sh uses pip, which ignores [tool.uv.sources], so
 # the .deb build dies on "No matching distribution found for astromesh-nebula".
 # v0.33.0 carries the fix (77bc29f) that makes nebula optional.
-ASTROMESH_REF=v0.34.0
+ASTROMESH_REF=v0.35.0
