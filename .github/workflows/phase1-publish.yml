@@ -68,13 +68,64 @@ jobs:
         run: |
           chmod 0600 phase3/secureboot/db.key  # git can't store 0600; mkosi rejects a looser SecureBootKey
           mkosi build
+      - name: Assert image size (Phase 1 gate — minimal image)
+        env:
+          MAX_MB: 500
+        run: |
+          RAW=$(ls mkosi.output/*.raw | grep -vE '\.(esp|var|root-[^.]*)\.raw$')
+          # Real blocks, not apparent size. The .raw is sparse: the partition layout is fixed
+          # (ESP 512M + root-A 448M + verity-A 32M + var 256M + the empty A/B spare root 512M +
+          # verity-B 32M), so `du --apparent-size` reports ~1.8G of mostly holes. `du -m` counts
+          # what the image actually occupies — the number this gate is about.
+          #
+          # This must run HERE, not in a later job: upload/download-artifact does not preserve
+          # sparseness, so downstream every hole is materialised and du would report ~1.8G.
+          USED_MB=$(du -m "${RAW}" | cut -f1)
+          echo "[size] ${RAW}: ${USED_MB} MB of real blocks (limit ${MAX_MB} MB)"
+          if [ "${USED_MB}" -gt "${MAX_MB}" ]; then
+            echo "[size] FAIL: the image grew past the Phase 1 budget of ${MAX_MB} MB."
+            echo "[size] Largest contributors in the rootfs:"
+            du -sh mkosi.output/*.raw || true
+            exit 1
+          fi
+          echo "[size] PASS: within the Phase 1 budget"
       - uses: actions/upload-artifact@v7
         with:
           name: phase1-image
           path: mkosi.output/*.raw
 
-  publish:
+  # Gate what actually gets published: the v0.33.0 image built and passed every check here,
+  # then died at boot on a missing runtime dependency. Publishing without booting the disk
+  # first means shipping that. Real-mode images have no stub provider, so this asserts boot +
+  # /v1/health + immutability (ASSERT_AGENT=0); phase0-ci still covers the full agent run.
+  boot-gate:
     needs: build-image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: phase1-image
+          path: image
+      - name: Install QEMU + curl
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-x86 curl qemu-utils ovmf
+      - name: Convert raw to qcow2
+        run: |
+          # SplitArtifacts emits per-partition .raw files alongside the full disk; select the
+          # combined disk (the only .raw without a partition infix), or qemu-img concatenates
+          # them and the GPT lands at the wrong offset.
+          RAW=$(ls image/*.raw | grep -vE '\.(esp|var|root-[^.]*)\.raw$')
+          echo "[boot] combined disk: ${RAW}"
+          qemu-img convert -O qcow2 "${RAW}" phase1.qcow2
+      - name: Enable KVM access
+        run: sudo chmod 666 /dev/kvm 2>/dev/null || echo "no /dev/kvm; will fall back to TCG"
+      - name: Run boot gate
+        env:
+          ASSERT_AGENT: "0"
+        run: bash tests/boot/run-and-assert.sh phase1.qcow2
+
+  publish:
+    needs: boot-gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7

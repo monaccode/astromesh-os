@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # Boots the Phase 0 qcow2 in QEMU and asserts the boot-to-agent gate.
 # Usage: tests/boot/run-and-assert.sh <path-to-disk-image>
+#
+# ASSERT_AGENT=0 asserts boot only — /v1/health plus the immutability marker — and skips
+# the agent run. That is for images built with PHASE0_MODE=real (phase1-publish): they
+# carry a real provider config instead of the stub server, so an agent run would call the
+# provider for real and fail on the placeholder key. Booting and serving /v1/health is
+# still worth gating there: it is exactly what a broken runtime breaks (see the v0.33.0
+# image, which built fine and died on ModuleNotFoundError before serving anything).
 set -euo pipefail
 
 IMAGE="${1:?usage: run-and-assert.sh <disk-image>}"
@@ -10,6 +17,7 @@ qemu-img resize "${IMAGE}" +3G >/dev/null
 PORT=8000
 BOOT_TIMEOUT=180
 AGENT="phase0-smoke"
+ASSERT_AGENT="${ASSERT_AGENT:-1}"
 
 KVM_FLAG=""
 if [ -w /dev/kvm ]; then KVM_FLAG="-enable-kvm"; fi
@@ -60,6 +68,10 @@ until curl -fsS "http://localhost:${PORT}/v1/health" >/dev/null 2>&1; do
 done
 echo "[boot] PASS: /v1/health is 200"
 
+if [ "${ASSERT_AGENT}" = "0" ]; then
+    echo "[boot] skipping agent run (ASSERT_AGENT=0 — real-mode image has no stub provider)"
+else
+
 echo "[boot] running agent ${AGENT}"
 # Capture status + body separately (no -f) so a provider/runtime error surfaces its detail
 # instead of just "curl: (22) ... 502". On failure, dump the body and the in-VM journal
@@ -76,6 +88,8 @@ if [ "${HTTP}" != "200" ] || [ -z "${RESP}" ]; then
 fi
 echo "[boot] agent response: ${RESP}"
 echo "[boot] PASS: agent returned a non-empty 200 response"
+
+fi
 
 echo "[boot] doctor (informational):"
 curl -fsS "http://localhost:${PORT}/v1/system/doctor" || echo "[boot] (doctor unavailable)"
