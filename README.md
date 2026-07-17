@@ -16,7 +16,7 @@
 </div>
 
 Minimal, immutable, API-only Linux distribution (appliance) whose sole purpose is
-running Astromesh AI agents (`astromeshd`). Versioned **`v0.6.0`** (semver, like the
+running Astromesh AI agents (`astromeshd`). Versioned **`v0.7.0`** (semver, like the
 rest of the ecosystem), mature through **Phase 4 + post-4**. See the
 [documentation](https://monaccode.github.io/astromesh/os/introduction/) and the design
 docs in `docs/superpowers/specs/`.
@@ -29,7 +29,7 @@ is implemented through **Fase 4 + post-4**, all merged to `main`:
 | Fase | Capability | Gate |
 |------|-----------|------|
 | **0** | Astromesh-core as a systemd service; boot-to-agent | `phase0-ci` (boot + agent, per-push on `main`) |
-| **1** | Minimal image (≤ 500 MB; ~285 MB) + OCI publish via ORAS | `phase1-publish` |
+| **1** | Minimal image (~378 MB of real blocks) + OCI publish via ORAS | `phase1-publish` |
 | **2** | Immutability: dm-verity RO root, A/B + automatic rollback | dev-loop `update` |
 | **3** | Security: TPM-sealed secrets, no-shell + break-glass, AppArmor, tool sandbox, egress, Secure Boot | `phase3-tpm`, … |
 | **4** | Agent-native + fleet: machine-config, mesh mTLS/IPsec, OTel export, eBPF causal egress | `phase4-{machineconfig,mesh,otel,otel-metrics,ebpf-rust,ebpf-control,agent-egress}` |

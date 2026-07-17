@@ -82,7 +82,7 @@ jobs:
         with:
           name: phase1-image
           path: image
-      - name: Install ORAS
+      - name: Install ORAS + zstd
         run: |
           url=$(curl -sfL https://api.github.com/repos/oras-project/oras/releases/latest \
             | python3 -c "import sys,json; a=json.load(sys.stdin)['assets']; print(next(x['browser_download_url'] for x in a if x['name'].endswith('_linux_amd64.tar.gz')))")
@@ -90,6 +90,11 @@ jobs:
           tar -xzf oras.tgz oras
           sudo mv oras /usr/local/bin/oras
           oras version
+          # push.sh compresses the disk before upload; don't rely on the runner image for it.
+          if ! command -v zstd >/dev/null; then
+            sudo apt-get update && sudo apt-get install -y zstd
+          fi
+          zstd --version
       - name: Validate ORAS tooling
         run: bash -n cloud/oras/push.sh cloud/oras/pull.sh
       - name: Publish artifact (only with DOCKERHUB_TOKEN)
