@@ -9,6 +9,11 @@
 # role (reasoner/planner/worker/synthesizer/supervisor), undefined roles fall back
 # to `default`; source-aware candidate builder + LiteLLM-backed provider (optional
 # `litellm` extra) for 100+ cloud models. Tag resolvable on origin.
+# v0.33.1: v0.33.0 built a .deb that would not boot — astromesh.api.main imported
+# numpy (via the new rag/factory.py -> faiss_store) and aiosqlite (via workflow/store),
+# neither of which ships in the image venv, so astromeshd died on ModuleNotFoundError
+# and never served /v1/health. Caught by this repo's boot gate. v0.33.1 makes both
+# imports lazy. Every release from v0.30.0 to v0.33.0 is unbootable for this reason.
 # v0.33.0: core OTLP export is finally wired — setup_observability() builds the
 # TelemetryManager/OTLPCollector/MetricsManager from AgentRuntime.bootstrap() under
 # ASTROMESH_OTLP_ENABLED (the classes existed but were never instantiated), and the
@@ -21,4 +26,4 @@
 # nor published on PyPI; build-deb.sh uses pip, which ignores [tool.uv.sources], so
 # the .deb build dies on "No matching distribution found for astromesh-nebula".
 # v0.33.0 carries the fix (77bc29f) that makes nebula optional.
-ASTROMESH_REF=v0.33.0
+ASTROMESH_REF=v0.33.1
