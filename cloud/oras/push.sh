@@ -16,6 +16,10 @@ TAG="${ORAS_TAG:?set ORAS_TAG, e.g. 0.1.0}"
 RAW="${1:?usage: push.sh <disk.raw>}"
 MEDIA="application/vnd.astromesh.disk.raw+zstd"
 ZSTD_LEVEL="${ZSTD_LEVEL:-9}"
+# `latest` tracks the newest RELEASE (see media-types.md), so only a tag build may move it.
+# This used to be an unconditional second push, which meant a workflow_dispatch run — tagged
+# `dev` — silently repointed `latest` at a throwaway dev build.
+PUSH_LATEST="${PUSH_LATEST:-0}"
 
 [ -f "${RAW}" ] || { echo "push.sh: no such file: ${RAW}" >&2; exit 1; }
 command -v zstd >/dev/null || { echo "push.sh: zstd not installed" >&2; exit 1; }
@@ -29,5 +33,10 @@ echo "[oras] size: $(du -h "${RAW}" | cut -f1) apparent -> $(du -h "${ART}" | cu
 
 echo "[oras] pushing ${ART} -> ${REPO}:${TAG} (${MEDIA})"
 oras push "${REPO}:${TAG}" "${ART}:${MEDIA}"
-oras push "${REPO}:latest" "${ART}:${MEDIA}"
+if [ "${PUSH_LATEST}" = "1" ]; then
+    echo "[oras] pushing ${ART} -> ${REPO}:latest"
+    oras push "${REPO}:latest" "${ART}:${MEDIA}"
+else
+    echo "[oras] not moving :latest (PUSH_LATEST=${PUSH_LATEST} — not a release build)"
+fi
 echo "[oras] done"
