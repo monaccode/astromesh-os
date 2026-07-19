@@ -37,4 +37,13 @@
 # nor published on PyPI; build-deb.sh uses pip, which ignores [tool.uv.sources], so
 # the .deb build dies on "No matching distribution found for astromesh-nebula".
 # v0.33.0 carries the fix (77bc29f) that makes nebula optional.
-ASTROMESH_REF=v0.35.0
+# v0.35.1: `timeout` del bloque model del agente por fin llega a la rama
+# openai_compat de build_candidate_provider() — antes se caía y el cliente HTTP
+# quedaba clavado en 120 s, techo que con modelos de razonamiento rompía corridas
+# con un ModelProviderError genérico. Asimetría congénita (desde 2026-03-21), no
+# regresión. Verificado antes de pinear: el diff v0.35.0..v0.35.1 toca 2 líneas
+# (engine.py + __version__), no agrega NINGÚN import en los paths sensibles al
+# boot, y tests/test_slim_install.py pasa 7/7 simulando el venv sin extras de la
+# imagen. El boot gate de este repo sigue siendo la red final.
+# Tag resolvable on origin.
+ASTROMESH_REF=v0.35.1
