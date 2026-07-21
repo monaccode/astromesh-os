@@ -16,7 +16,7 @@
 </div>
 
 Minimal, immutable, API-only Linux distribution (appliance) whose sole purpose is
-running Astromesh AI agents (`astromeshd`). Versioned **`v0.9.1`** (semver, like the
+running Astromesh AI agents (`astromeshd`). Versioned **`v0.10.0`** (semver, like the
 rest of the ecosystem), mature through **Phase 4 + post-4**. See the
 [documentation](https://monaccode.github.io/astromesh/os/introduction/) and the design
 docs in `docs/superpowers/specs/`.
@@ -35,13 +35,17 @@ is implemented through **Fase 4 + post-4**, all merged to `main`:
 | **4** | Agent-native + fleet: machine-config, mesh mTLS/IPsec, OTel export, eBPF causal egress | `phase4-{machineconfig,mesh,otel,otel-metrics,ebpf-rust,ebpf-control,agent-egress}` |
 | **post-4** | §12.3 cgroup memory governance, §12.7 CRIU checkpoint/restore, §12.2a sched_ext¹ | `phase4-{memory,criu,schedext}` |
 
-Runtime pinned to **astromesh `v0.35.1`** (`runtime.pin`) — the Fase 4 OTel/metrics/egress
+Runtime pinned to **astromesh `v0.36.0`** (`runtime.pin`) — the Fase 4 OTel/metrics/egress
 runtime work, the Moonshot/Kimi OpenAI-compat provider with cache-aware pricing, per-role
 model routing, the core-side OTLP export wiring (`ASTROMESH_OTLP_ENABLED`), WebSocket
 streaming of live run events (v0.34.0), `type: client` tools announced to the model instead
-of being silently dropped (v0.35.0), and the openai_compat client `timeout` from the agent's
-model block finally reaching the HTTP client (v0.35.1) — previously it stayed pinned at 120 s,
-which broke long reasoning-model runs with a generic `ModelProviderError`.
+of being silently dropped (v0.35.0), the openai_compat client `timeout` from the agent's
+model block finally reaching the HTTP client (v0.35.1), and three fixes aimed squarely at
+the API-managed runtime mode this image uses (v0.36.0): RAG pipelines no longer lost when
+the runtime boots with no agents on disk, prompt templates scoped per agent so two agents
+can't overwrite each other's, and `usage.by_model` — a per-`(provider, model, role)`
+breakdown of what a run actually consumed, alongside a `usage.model` that no longer comes
+back empty on native providers.
 
 ¹ **§12.2a sched_ext** is implemented (guarded loader + `scx_simple`, fail-closed, default
 off) but its acceptance gate is **deferred**: Debian's trixie 6.12 kernel ships without

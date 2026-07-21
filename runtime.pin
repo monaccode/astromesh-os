@@ -46,4 +46,23 @@
 # boot, y tests/test_slim_install.py pasa 7/7 simulando el venv sin extras de la
 # imagen. El boot gate de este repo sigue siendo la red final.
 # Tag resolvable on origin.
-ASTROMESH_REF=v0.35.1
+# v0.36.0: tres correcciones del runtime que apuntan al modo "administrado por API"
+# (el que usa este SO y el que va a usar Nexus): (1) los specs de RAG ya no se pierden
+# cuando el runtime arranca sin agentes en disco — bootstrap() salía temprano antes de
+# cargarlos; (2) los templates de prompt pasan a tener alcance por agente, así dos
+# agentes con un template homónimo dejan de pisarse; (3) usage.model dejó de volver
+# vacío con proveedores nativos y se suma usage.by_model, el desglose de consumo por
+# (provider, model, role) — una corrida toca varios modelos por patrón de orquestación,
+# ruteo por rol y fallback, y el campo plano no podía representarlo.
+# Verificado antes de pinear: el diff v0.35.1..v0.36.0 no agrega NINGÚN import nuevo en
+# los paths sensibles al boot (el único import agregado en todo el diff es `logging`,
+# stdlib, en ollama_provider.py). Atención especial al punto (1), que mueve
+# `from astromesh.rag.loader import RAGPipelineLoader` a ejecutarse siempre: ese módulo
+# solo importa dataclasses/pathlib/yaml — ni numpy ni faiss —, así que no reedita el
+# incidente que dejó sin bootear a v0.30.0..v0.33.0. tests/test_slim_install.py pasa
+# 7/7 simulando el venv sin extras de la imagen. La única dependencia nueva del release
+# (jsonschema) está en el grupo `dev`, que build-deb.sh no instala. Además se corrió el
+# smoke completo en contenedor amd64 sobre el .deb real: health 0.36.0, agente
+# phase0-smoke en 200, y usage.by_model poblado. El boot gate de este repo sigue siendo
+# la red final. Tag resolvable on origin.
+ASTROMESH_REF=v0.36.0
