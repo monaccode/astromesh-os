@@ -16,7 +16,7 @@
 </div>
 
 Minimal, immutable, API-only Linux distribution (appliance) whose sole purpose is
-running Astromesh AI agents (`astromeshd`). Versioned **`v0.10.0`** (semver, like the
+running Astromesh AI agents (`astromeshd`). Versioned **`v0.10.1`** (semver, like the
 rest of the ecosystem), mature through **Phase 4 + post-4**. See the
 [documentation](https://monaccode.github.io/astromesh/os/introduction/) and the design
 docs in `docs/superpowers/specs/`.
