@@ -17,10 +17,21 @@ spec:
       model: "kimi-k2.5"
       api_key_env: MOONSHOT_API_KEY
       parameters:
-        temperature: 0.0
-        # kimi-k2.5 is a "thinking" model: it spends tokens on reasoning_content before the
-        # answer (the runtime echoes it back). 64 tokens could be consumed entirely by the
-        # reasoning and truncate the answer to empty → the gate's non-empty assert would fail.
+        # Do NOT set `temperature` here. kimi-k2.5 pins its own and rejects any value
+        # with a 400 — including the one its error message says it wants. Omit it and
+        # the model uses its default.
+        #
+        # This agent declared `temperature: 0.0` from the day it was written and the
+        # gate passed anyway, because astromesh's openai_compat provider silently
+        # dropped `parameters` before core v0.36.0. That release made them reach the
+        # request, which is the correct behaviour — and it turned a parameter that had
+        # never been sent into a 400 on every real-mode run. The nightly caught it; the
+        # stub-mode gate could not, because the stub accepts anything.
+        #
+        # kimi-k2.5 is a "thinking" model: it spends tokens on reasoning_content before
+        # the answer (the runtime echoes it back). 64 tokens could be consumed entirely
+        # by the reasoning and truncate the answer to empty → the gate's non-empty
+        # assert would fail. Hence the generous ceiling.
         max_tokens: 1024
   prompts:
     system: "You are a smoke-test agent. Answer concisely."
