@@ -65,4 +65,27 @@
 # smoke completo en contenedor amd64 sobre el .deb real: health 0.36.0, agente
 # phase0-smoke en 200, y usage.by_model poblado. El boot gate de este repo sigue siendo
 # la red final. Tag resolvable on origin.
-ASTROMESH_REF=v0.36.0
+# v0.37.0: marco de integraciones declarativas — un `integration.yaml` se convierte en
+# tools de agente, con las credenciales inyectadas por corrida (el core no las almacena ni
+# las refresca, sigue ciego al tenant). Ocho integraciones en el catálogo: http, whatsapp,
+# instagram, facebook, gmail, google_drive, google_sheets, tiktok. Además el gate de CI del
+# core deja de moverse solo: ruleset de ruff declarado en vez de heredado del default, y
+# uv.lock versionado con `uv sync --locked`.
+# Verificado antes de pinear, con atención al modo de falla de v0.30.0..v0.33.0:
+# (1) las dependencias de runtime `[project]` NO cambian entre v0.36.0 y v0.37.0;
+# (2) los imports nuevos a nivel de módulo en los paths sensibles al boot son
+#     `astromesh.core.schema`, `astromesh.integrations` y `astromesh.integrations.credentials`
+#     en runtime/engine.py, más stdlib (collections.abc, enum, typing) en core/tools.py.
+#     TODO el paquete `integrations` importa sólo stdlib + pydantic + httpx + yaml, que ya
+#     son dependencias base; ni numpy, ni faiss, ni aiosqlite, ni opentelemetry. El único
+#     import interno que agrega, `astromesh.observability.tracing`, es stdlib puro;
+# (3) tests/test_slim_install.py pasa 7/7 simulando el venv sin extras de la imagen;
+# (4) se reprodujo el `pip install "../[observability]" ".[systemd]"` de build-deb.sh en un
+#     contenedor debian:trixie amd64 sobre el árbol de v0.37.0: pip resuelve (el modo de
+#     falla de v0.31.0/v0.32.0 no se repite), `import astromesh.api.main` limpio y las 8
+#     integraciones se descubren desde el venv;
+# (5) en ese mismo contenedor se corrió el lifespan ASGI completo: `lifespan.startup.complete`,
+#     7 agentes cargados del config empaquetado y las 8 integraciones descubiertas. Es el
+#     modo de falla que el boot gate de este repo atrapa, verificado antes de llegar a él.
+# El boot gate de este repo sigue siendo la red final. Tag resolvable on origin.
+ASTROMESH_REF=v0.37.0
