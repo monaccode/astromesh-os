@@ -88,4 +88,45 @@
 #     7 agentes cargados del config empaquetado y las 8 integraciones descubiertas. Es el
 #     modo de falla que el boot gate de este repo atrapa, verificado antes de llegar a él.
 # El boot gate de este repo sigue siendo la red final. Tag resolvable on origin.
-ASTROMESH_REF=v0.37.0
+# v0.38.1: encadenamiento declarativo de agentes — un agente declara en su propio YAML
+# qué otros disparar al terminar y bajo qué condiciones (`spec.chain`), y eso se compila en
+# bootstrap a un WorkflowSpec que el motor existente ejecuta. Se suma `spec.output_schema`
+# (salida estructurada y validada en result.data) porque sin algo estructurado las
+# condiciones no son confiables. Cuatro adiciones al WorkflowEngine que también sirven a los
+# workflows escritos a mano: guarda `when` por paso, `on_error: continue`, paso `parallel`, y
+# —lo más relevante para esta imagen— el motor por fin se instancia en el lifespan de la API:
+# hasta v0.37.0 `set_workflow_engine` no se llamaba nunca fuera de los tests, así que
+# /v1/workflows/ devolvía [] y ningún workflow corría.
+#
+# Se saltea v0.38.0: publicable no era. chain.compiler importaba workflow.models, lo que
+# ejecuta workflow/__init__, que importa workflow.loader, que volvía a chain.compiler por el
+# prefijo reservado y lo encontraba a medio inicializar; `from astromesh.runtime.engine import
+# AgentRuntime` reventaba con ImportError. Lo atrapó el smoke test del release contra TestPyPI
+# antes de publicar en PyPI, así que v0.38.0 no existe como release instalable. v0.38.1 mueve
+# el prefijo a astromesh/chain/naming.py, un módulo sin un solo import, y agrega
+# tests/test_import_entrypoints.py, que importa cada entrada pública en un intérprete limpio
+# —lo que la suite no podía ver, porque para cuando corre el primer test conftest ya resolvió
+# el orden de imports.
+#
+# Verificado antes de pinear, con atención al modo de falla de v0.30.0..v0.33.0:
+# (1) las dependencias de runtime `[project]` NO cambian entre v0.37.0 y v0.38.1: el diff de
+#     pyproject.toml es sólo las dos líneas de `version`;
+# (2) los imports nuevos a nivel de módulo en los paths sensibles al boot son exactamente dos,
+#     ambos en runtime/engine.py: `astromesh.chain.compiler` y `astromesh.chain.output`.
+#     Atención especial porque el primero arrastra el paquete `workflow` entero de forma
+#     eager —el mismo que dejó sin bootear a v0.30.0..v0.33.0—. Medido, no leído: importar
+#     todo `astromesh.chain` carga como terceros sólo jinja2, markupsafe y yaml, las tres ya
+#     dependencias base. Ni numpy, ni faiss, ni aiosqlite, ni asyncpg. `workflow/__init__`
+#     importa `workflow.store` (aiosqlite bajo TYPE_CHECKING, no se materializa) y NO importa
+#     `workflow.store_pg`, que sí trae asyncpg eager;
+# (3) tests/test_slim_install.py pasa 7/7 simulando el venv sin extras de la imagen;
+# (4) se reprodujo el `pip install "../[observability]" ".[systemd]"` de build-deb.sh en un
+#     contenedor debian:trixie amd64 sobre el árbol de v0.38.1: pip resuelve (el modo de falla
+#     de v0.31.0/v0.32.0 no se repite) y numpy/faiss/aiosqlite/asyncpg/chromadb quedan
+#     efectivamente ausentes del venv;
+# (5) en ese mismo venv se corrió el lifespan ASGI completo: `lifespan.startup.complete`,
+#     9 agentes cargados del config empaquetado y 2 workflows —uno de disco más la cadena
+#     compilada `__chain__sales-qualifier`, cuyo grafo se inspeccionó y resuelve a
+#     [sales-qualifier, email-composer]—. Es decir: el código nuevo no sólo importa, corre.
+# El boot gate de este repo sigue siendo la red final. Tag resolvable on origin.
+ASTROMESH_REF=v0.38.1
