@@ -129,4 +129,43 @@
 #     compilada `__chain__sales-qualifier`, cuyo grafo se inspeccionó y resuelve a
 #     [sales-qualifier, email-composer]—. Es decir: el código nuevo no sólo importa, corre.
 # El boot gate de este repo sigue siendo la red final. Tag resolvable on origin.
-ASTROMESH_REF=v0.38.1
+# v0.39.0: Glyph — lenguaje de acción para agentes. Dos modos: como patrón de
+# orquestación (`pattern: glyph`, el modelo emite un programa que el runtime ejecuta
+# encadenando capacidades con las sentencias independientes en paralelo) y como
+# lenguaje de autoría (`spec.program`: el programa se escribe una vez, se revisa, se
+# fija en el YAML, y el runtime lo ejecuta con CERO llamadas al modelo). El segundo es
+# el recomendado: medido contra tres modelos, el patrón de runtime cuesta más que ReAct
+# porque los tokens de salida valen ~4x los de entrada y Glyph cambia unos por otros.
+# También: fuga de credenciales por `_caller_context` cerrada (las claves reservadas del
+# runtime ya no llegan a los patrones ni a la traza), lectura correcta de los tokens
+# cacheados (antes se leían sólo de la raíz del `usage` y contra OpenAI daban 0,
+# sobreestimando el costo en silencio), y la imagen Docker del core que estaba rota.
+#
+# ATENCIÓN, lo específico de este release para esta imagen: el config empaquetado
+# incorpora `acuse-programa`, un agente con `spec.program` que **requiere el extra
+# `glyph`**, y este SO no instala extras más allá de `observability`. El agente queda
+# deliberadamente en `draft` con el motivo visible en `GET /v1/agents`, en vez de
+# degradarse en silencio a `react` — degradar un programa fijo cambia el costo de la
+# corrida en dos órdenes de magnitud. **No impide bootear**, pero la imagen arranca con
+# un agente en draft y eso es esperado, no un fallo.
+#
+# Verificado antes de pinear, con atención al modo de falla de v0.30.0..v0.33.0:
+# (1) las dependencias de runtime `[project]` NO cambian entre v0.38.1 y v0.39.0: el
+#     único agregado en pyproject.toml es el extra OPCIONAL `glyph`, que este SO no
+#     instala — se confirmó que `observability` no lo arrastra;
+# (2) el único import nuevo a nivel de módulo en los paths sensibles al boot
+#     (api/main.py, runtime/engine.py, core/tools.py) es `astromesh.errors`, que importa
+#     sólo stdlib (errno, socket, typing). El import de `astromesh_glyph` vive dentro de
+#     `_build_pattern` y de `_compile_glyph_program`, nunca a nivel de módulo, y hay un
+#     test que lo verifica en un subproceso con el módulo bloqueado;
+# (3) tests/test_slim_install.py pasa 7/7 simulando el venv sin extras de la imagen;
+# (4) se reprodujo el `pip install "../[observability]" ".[systemd]"` de build-deb.sh en
+#     un contenedor debian:trixie amd64 sobre el árbol de v0.39.0: pip resuelve (el modo
+#     de falla de v0.31.0/v0.32.0 no se repite) y astromesh_glyph, numpy, faiss,
+#     aiosqlite, asyncpg y chromadb quedan efectivamente ausentes del venv;
+# (5) en ese mismo venv se corrió el bootstrap completo del runtime sobre el config
+#     empaquetado: 10 agentes cargados, versión 0.39.0, y `acuse-programa` en `draft` con
+#     `AgentConfigError: el agente declara program pero el extra glyph no está instalado`.
+#     Es decir: el arranque no se rompe y el único agente que no carga lo dice.
+# El boot gate de este repo sigue siendo la red final. Tag resolvable on origin.
+ASTROMESH_REF=v0.39.0
