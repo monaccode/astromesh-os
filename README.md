@@ -6,6 +6,7 @@
 
 **Minimal, immutable, API-only Linux appliance for running Astromesh AI agents.**
 
+[![Astromesh · Ship](https://img.shields.io/badge/astromesh-ship-fb923c?labelColor=161b22)](https://monaccode.github.io/astromesh/#ecosystem)
 [![OS Tag](https://img.shields.io/github/v/tag/monaccode/astromesh-os?sort=semver&label=version&color=fb923c)](https://github.com/monaccode/astromesh-os/tags)
 [![CI](https://github.com/monaccode/astromesh-os/actions/workflows/phase0-ci.yml/badge.svg?branch=main)](https://github.com/monaccode/astromesh-os/actions/workflows/phase0-ci.yml)
 [![Publish (OCI)](https://github.com/monaccode/astromesh-os/actions/workflows/phase1-publish.yml/badge.svg)](https://github.com/monaccode/astromesh-os/actions/workflows/phase1-publish.yml)
