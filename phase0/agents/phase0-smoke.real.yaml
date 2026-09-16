@@ -14,12 +14,12 @@ spec:
       # ("openai") works unchanged — only the base endpoint, model and key var change.
       provider: openai
       endpoint: "https://api.moonshot.ai/v1"
-      model: "kimi-k2.5"
+      model: "kimi-k2.6"
       api_key_env: MOONSHOT_API_KEY
       parameters:
-        # Do NOT set `temperature` here. kimi-k2.5 pins its own and rejects any value
-        # with a 400 — including the one its error message says it wants. Omit it and
-        # the model uses its default.
+        # Do NOT set `temperature` here. kimi-k2.6 pins its own and rejects any value
+        # with a 400 — `invalid temperature: only 1 is allowed for this model`, including
+        # the one its error message says it wants. Omit it and the model uses its default.
         #
         # This agent declared `temperature: 0.0` from the day it was written and the
         # gate passed anyway, because astromesh's openai_compat provider silently
@@ -28,10 +28,12 @@ spec:
         # never been sent into a 400 on every real-mode run. The nightly caught it; the
         # stub-mode gate could not, because the stub accepts anything.
         #
-        # kimi-k2.5 is a "thinking" model: it spends tokens on reasoning_content before
-        # the answer (the runtime echoes it back). 64 tokens could be consumed entirely
-        # by the reasoning and truncate the answer to empty → the gate's non-empty
-        # assert would fail. Hence the generous ceiling.
+        # kimi-k2.6 is a "thinking" model: it spends tokens on reasoning_content before
+        # the answer (the runtime echoes it back). Measured against the live endpoint on
+        # 2026-09-16: asking it for the capital of France cost 80 completion tokens, of
+        # which 76 were reasoning — the answer itself was one word. A 64-token ceiling
+        # would be consumed entirely by the reasoning and truncate the answer to empty,
+        # failing the gate's non-empty assert. Hence the generous ceiling.
         max_tokens: 1024
   prompts:
     system: "You are a smoke-test agent. Answer concisely."
