@@ -129,4 +129,79 @@
 #     compilada `__chain__sales-qualifier`, cuyo grafo se inspeccionó y resuelve a
 #     [sales-qualifier, email-composer]—. Es decir: el código nuevo no sólo importa, corre.
 # El boot gate de este repo sigue siendo la red final. Tag resolvable on origin.
-ASTROMESH_REF=v0.38.1
+# v0.55.0: dieciséis releases de una sola vez. Lo que más pesa para una appliance
+# API-only es el costo por corrida: (1) una agent tool devuelve sólo `answer` —más
+# `data`/`data_error` cuando el hijo declara output_schema— en vez de la corrida
+# entera con `steps` y `trace` adentro, que ReActPattern str()-ificaba dentro de la
+# historia del padre: ~13.000 tokens de entrada de más por llamada, y en cada vuelta
+# siguiente del loop, medidos contra nexus-dev; (2) ReAct agrupa las tool calls de
+# una respuesta en UN mensaje de assistant (0.48.0), así el reasoning_content de un
+# modelo de razonamiento deja de viajar una vez por tool; (3) los tres Kimi que
+# faltaban tienen precio (0.50.0) —`estimated_cost()` devuelve 0.0 para un modelo
+# que no conoce, o sea que apuntar un agente a kimi-k3 lo dejaba corriendo y
+# costando cero en todo ledger río abajo—; (4) `usage.by_model[].tokens_cached`
+# (0.54.0). Del lado del comportamiento: el gate de confirmación duro (0.42.0) —una
+# acción declarada en `confirm:` no se ejecuta hasta que la persona escriba una
+# palabra exacta, comparada contra su texto crudo y nunca interpretada por el
+# modelo—, `spec.prefetch` (0.51.0), siete integraciones nuevas al catálogo, y el
+# cierre de una fuga: un handler de integración recibía `connections` y `secrets` de
+# la corrida y ahora recibe sólo el contexto público del llamador (0.52.1).
+#
+# ATENCIÓN, lo específico para esta imagen: la memoria conversacional era código
+# muerto —`_build_agent` armaba el MemoryManager sin `conversation=` y nadie llamaba
+# a `build_conversation_backend`, así que ningún agente tuvo memoria nunca, con
+# ningún backend, y los spans reportaban `ok`—. Arreglado en 0.44.0, con la
+# consecuencia visible acá: el arranque ahora emite CINCO warnings que en v0.38.1 no
+# existían, porque de los diez agentes del config empaquetado seis declaran
+# `memory.conversational` y esta imagen no instala ninguno de esos extras —tres en
+# `sqlite` y dos en `in_memory`, backends que el factory no construye, y
+# `sales-qualifier` en `redis`, cuyo paquete no está—. Los seis degradan a SIN
+# memoria con el motivo nombrado en el log, y NINGUNO pasa a `draft`: eso es
+# exactamente lo que cerró 0.44.1, porque un agente muerto por una dependencia de
+# memoria es peor falla que un agente sin memoria. Arranque más ruidoso, no roto.
+# Sigue vigente lo anotado en v0.39.0: `acuse-programa` es el único agente en
+# `draft`, por el extra `glyph` que este SO no instala, y sigue siendo deliberado.
+#
+# NOTA: v0.44.0 no se pinea NUNCA. El bump tocó pyproject.toml y no
+# astromesh/__init__.py, que quedó en `__version__ = "0.43.0"`: el gate de la
+# release corta con `Version mismatch` y el paquete nunca llegó a PyPI. Acá eso no
+# impediría construir —el .deb sale del checkout, no de PyPI—, pero daría una imagen
+# `astromesh-node_0.1.2` cuyo /v1/health contesta 0.43.0, o sea una imagen que miente
+# su versión, y el boot gate de este repo NO la atraparía: run-and-assert.sh sólo
+# espera un 200 en /v1/health, no chequea el campo `version`. v0.44.1 empareja las
+# dos copias y agrega el test que lo sostiene.
+#
+# Verificado antes de pinear, con atención al modo de falla de v0.30.0..v0.33.0:
+# (1) las dependencias de runtime `[project]` NO cambian entre v0.38.1 y v0.55.0:
+#     siguen siendo las mismas siete. Lo único que pyproject.toml agrega en dieciséis
+#     releases es el extra OPCIONAL `glyph`, que este SO no instala. Sí cambia
+#     astromesh-node: `astromesh>=0.40.0` y `astromesh-cli>=0.3.0` (0.40.0). El
+#     segundo lo resuelve pip contra PyPI —el mismo terreno donde murieron v0.31.0 y
+#     v0.32.0—, pero astromesh-cli 0.3.0 está publicada y baja sin ruido;
+# (2) api/main.py queda BYTE-IDÉNTICO y core/tools.py no agrega un solo import a
+#     nivel de módulo pese a crecer 4 KB. Los únicos imports nuevos en los paths
+#     sensibles son cuatro internos en runtime/engine.py: `astromesh.errors`,
+#     `astromesh.memory.factory`, `astromesh.runtime.confirmacion` y
+#     `astromesh.runtime.prefetch`. Atención especial al segundo, que es un
+#     `<algo>/factory.py` importado eager desde el engine — exactamente la forma que
+#     tenía rag/factory.py cuando dejó sin bootear a v0.30.0..v0.33.0. Medido, no
+#     leído, importando cada módulo en un intérprete limpio del venv sin extras:
+#     memory.factory carga SÓLO stdlib (el `redis_conv` vive dentro de
+#     `build_conversation_backend`), confirmacion sólo stdlib (hashlib, unicodedata),
+#     errors sólo stdlib, y prefetch agrega jinja2/markupsafe, ya dependencias base.
+#     Ni numpy, ni faiss, ni aiosqlite, ni asyncpg, ni chromadb, ni astromesh_glyph;
+# (3) tests/test_slim_install.py pasa 7/7 simulando el venv sin extras de la imagen
+#     (el archivo no cambió una línea en todo el rango);
+# (4) se reprodujo el `pip install "../[observability]" ".[systemd]"` de
+#     build-deb.sh en un contenedor debian:trixie amd64 sobre el árbol de v0.55.0:
+#     pip resuelve con código 0 (el modo de falla de v0.31.0/v0.32.0 no se repite),
+#     51 paquetes en el venv, y numpy/faiss/aiosqlite/asyncpg/chromadb/
+#     astromesh_glyph quedan ausentes tanto en `pip list` como en `find_spec`;
+# (5) en ese mismo venv se corrió el lifespan ASGI completo contra el config
+#     empaquetado copiado a /etc/astromesh: `lifespan.startup.complete`, 10 agentes
+#     cargados (9 `deployed` + `acuse-programa` en `draft`), versión 0.55.0 en
+#     /v1/health, /v1/agents en 200 y 2 workflows —`lead-qualification` de disco más
+#     la cadena compilada `__chain__sales-qualifier`—. El código nuevo no sólo
+#     importa: corre.
+# El boot gate de este repo sigue siendo la red final. Tag resolvable on origin.
+ASTROMESH_REF=v0.55.0
