@@ -30,22 +30,14 @@ chmod +x "${SYSCTL}"
 dpkg -i "${DEB}"
 if [ -e "${SYSCTL}.real" ]; then mv -f "${SYSCTL}.real" "${SYSCTL}"; fi
 
-# 1b. The .deb's venv was created at a build-time staging path and relocated to
-#     /opt/astromesh/venv, so its console-script shebangs point at a path that does
-#     not exist in the image (astromeshd then fails with 203/EXEC). Rewrite the
-#     python shebangs to the installed venv interpreter.
-echo "[postinst] venv bin before fix:"; ls -la /opt/astromesh/venv/bin 2>&1 | head -20 || true
-echo "[postinst] astromeshd shebang:"; head -1 /opt/astromesh/venv/bin/astromeshd 2>&1 || true
-if [ -d /opt/astromesh/venv/bin ]; then
-    for s in /opt/astromesh/venv/bin/*; do
-        [ -f "${s}" ] || continue
-        first=$(head -1 "${s}" 2>/dev/null || true)
-        case "${first}" in
-            "#!"*python*) sed -i "1s|^#!.*|#!/opt/astromesh/venv/bin/python3|" "${s}" ;;
-        esac
-    done
+# 1b. Since astromesh-node 0.1.8 the .deb builds its venv at /opt/astromesh/venv on its own
+#     CPython (/opt/astromesh/python), so the shebangs are already right — the rewrite this
+#     step used to do (203/EXEC in Phase 0) is gone. Fail the build if that ever regresses.
+bad_shebang=$(grep -l '^#!.*python' /opt/astromesh/venv/bin/* 2>/dev/null \
+    | xargs -r head -qn1 | grep -v '^#!/opt/astromesh/venv/bin/python' || true)
+if [ -n "${bad_shebang}" ]; then
+    echo "[postinst] FAIL: venv scripts point elsewhere: ${bad_shebang}"; exit 1
 fi
-echo "[postinst] astromeshd shebang after fix:"; head -1 /opt/astromesh/venv/bin/astromeshd 2>&1 || true
 
 # 1c. Trim the venv to help fit the size budget (spec §4.2): bytecode caches and
 #     in-package test dirs. Only safe-to-remove artefacts; the boot-to-agent gate

@@ -14,6 +14,13 @@ profile astromeshd {
   /opt/astromesh/venv/bin/python3* mrix,
   /opt/astromesh/venv/** r,
   /opt/astromesh/venv/**.so* mr,
+  # Since astromesh-node 0.1.8 the venv is built on the package's own CPython
+  # (python-build-standalone): venv/bin/python3 is a symlink here, and AppArmor mediates the
+  # resolved path — exec, stdlib and libpython live under /opt/astromesh/python, not
+  # /usr/lib/python3 (which abstractions/python covers).
+  /opt/astromesh/python/bin/python3* mrix,
+  /opt/astromesh/python/** r,
+  /opt/astromesh/python/**.so* mr,
 
   # Config (read-only): agents, .env, providers.
   /etc/astromesh/{,**} r,

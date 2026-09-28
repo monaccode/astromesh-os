@@ -240,4 +240,36 @@
 # El boot gate de este repo sigue siendo la red final — y ahora además prueba el watchdog:
 # sin drop-in, un daemon que no hiciera ping moriría a los 30 s del arranque. Tag resolvable
 # on origin.
-ASTROMESH_REF=node-v0.1.6
+# v0.61.0 (node 0.1.9): vuelve a pinearse un tag del core porque en su árbol core (0.61.0)
+# y node (0.1.9) dicen lo que llevan. Lo que cambia para esta imagen:
+#   - node 0.1.8/0.1.9 empaqueta su propio CPython 3.12 (python-build-standalone,
+#     install_only_stripped, sha256 fijo) en /opt/astromesh/python, y el venv de
+#     /opt/astromesh/venv apunta ahí. Hasta 0.1.7 el .deb traía un venv armado en el runner
+#     de CI, con shebangs al path del runner; este repo lo tapaba reescribiendo shebangs en
+#     el paso 1b de mkosi.postinst.chroot y trayendo `python3-venv`. Las dos cosas se van:
+#     el paso 1b ahora sólo VERIFICA que todo shebang apunte a /opt/astromesh/venv y corta
+#     si no, y `python3-venv` sale de mkosi.conf (`python3` queda: lo usan los chequeos de
+#     egress y sandbox con /usr/bin/python3);
+#   - el perfil AppArmor `astromeshd` (ENFORCE) media paths resueltos: el intérprete real
+#     ahora es /opt/astromesh/python/bin/python3.12, así que el perfil suma `mrix` para él,
+#     lectura del árbol y `mr` para sus .so. Sin eso el daemon moriría denegado al arrancar;
+#   - el .deb ya no declara Depends de Python;
+#   - core 0.61.0: un sub-agente propone (`mode: propose`) sobre la lista de quien lo llamó.
+#
+# Verificado antes de pinear, con los cinco chequeos de siempre:
+# (1) dependencias de runtime `[project]`: sin cambios entre v0.60.0 y v0.61.0;
+# (2) api/main.py y los paths sensibles al boot no agregan imports a nivel de módulo;
+# (3) tests/test_slim_install.py pasa 7/7 en el árbol de v0.61.0;
+# (4) build-deb.sh real (no la reproducción con pip de antes: ahora arma el CPython propio)
+#     en un contenedor debian:trixie amd64: `venv OK 0.1.9`, Depends vacío, `dpkg -i`
+#     limpio; shebang `#!/opt/astromesh/venv/bin/python3`, python3 -> 
+#     /opt/astromesh/python/bin/python3.12; numpy, faiss, aiosqlite, asyncpg, chromadb,
+#     astromesh_glyph y mcp AUSENTES. Pesa 98 MB el intérprete y 85 MB el venv, sin
+#     comprimir: la imagen crece y el presupuesto de 500 MB de phase1-publish lo mide;
+# (5) astromeshd (camino systemd) contra el config empaquetado en /etc/astromesh:
+#     /v1/health 200 con 0.61.0, 10 agentes (9 deployed + `acuse-programa` en draft, el de
+#     siempre por el extra glyph); se sacó un agente del disco, `kill -HUP`, el log dijo
+#     `Reload: removed=['acuse-programa']`, /v1/agents pasó a 9 y el proceso siguió vivo.
+# El boot gate de este repo es la red final, y ahora además ejerce el perfil AppArmor con el
+# intérprete nuevo y el watchdog (mismo PID pasados 45 s). Tag resolvable on origin.
+ASTROMESH_REF=v0.61.0
