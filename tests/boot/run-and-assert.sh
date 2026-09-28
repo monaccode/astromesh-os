@@ -68,6 +68,16 @@ until curl -fsS "http://localhost:${PORT}/v1/health" >/dev/null 2>&1; do
 done
 echo "[boot] PASS: /v1/health is 200"
 
+# The daemon's PID now, to prove at the end that systemd never killed it. The unit ships
+# WatchdogSec=30; a daemon that doesn't ping WATCHDOG=1 is killed after 30 s and
+# Restart=on-failure brings up a NEW process — /v1/health keeps answering, so only the PID
+# tells the two apart. (Until node 0.1.4 the daemon didn't ping and this image carried a
+# WatchdogSec=0 drop-in instead.)
+status_field() { curl -fsS "http://localhost:${PORT}/v1/system/status" | python3 -c "import sys,json; print(json.load(sys.stdin)['$1'])"; }
+FIRST_PID=$(status_field pid)
+FIRST_AT=$(date +%s)
+echo "[boot] astromeshd pid ${FIRST_PID}"
+
 if [ "${ASSERT_AGENT}" = "0" ]; then
     echo "[boot] skipping agent run (ASSERT_AGENT=0 — real-mode image has no stub provider)"
 else
@@ -93,6 +103,17 @@ fi
 
 echo "[boot] doctor (informational):"
 curl -fsS "http://localhost:${PORT}/v1/system/doctor" || echo "[boot] (doctor unavailable)"
+
+WATCHDOG_WINDOW=45   # > WatchdogSec=30, plus RestartSec=5 and slack
+left=$(( FIRST_AT + WATCHDOG_WINDOW - $(date +%s) ))
+if [ "${left}" -gt 0 ]; then echo "[boot] waiting ${left}s past the watchdog window"; sleep "${left}"; fi
+LAST_PID=$(status_field pid || echo "unreachable")
+if [ "${LAST_PID}" != "${FIRST_PID}" ]; then
+    echo "[boot] FAIL: astromeshd pid changed ${FIRST_PID} -> ${LAST_PID} within ${WATCHDOG_WINDOW}s (watchdog kill?)"
+    echo "----- watchdog lines -----"; grep -a -i 'watchdog\|astromeshd' qemu-console.log | tail -n 40 || true
+    exit 1
+fi
+echo "[boot] PASS: WATCHDOG OK (same pid ${LAST_PID}, uptime $(status_field uptime_seconds)s)"
 
 echo "[boot] asserting immutability marker"
 if grep -q "IMMUTABILITY OK" qemu-console.log; then
