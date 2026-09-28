@@ -166,20 +166,11 @@ systemctl enable astromesh-resolv.service
 install -d /etc/strongswan.d/charon
 printf 'resolve {\n    load = no\n}\n' > /etc/strongswan.d/charon/resolve.conf
 
-# 6. Drop the systemd watchdog for astromeshd. The unit ships WatchdogSec=30 but the
-#    daemon only sends READY=1 (no periodic WATCHDOG=1), so systemd kills it every
-#    30s. Phase 0 only needs it to stay up and answer one query.
-install -d /etc/systemd/system/astromeshd.service.d
-cat > /etc/systemd/system/astromeshd.service.d/10-no-watchdog.conf <<'WD'
-[Service]
-WatchdogSec=0
-WD
-
-# 7. Ensure astromeshd is enabled (the .deb already does this; idempotent).
+# 6. Ensure astromeshd is enabled (the .deb already does this; idempotent).
 systemctl enable astromeshd.service
 
 
-# 8. Boot-to-agent target: make astromeshd the purpose of the system. getty is
+# 7. Boot-to-agent target: make astromeshd the purpose of the system. getty is
 #    intentionally kept (no-shell is Fase 3). The target's own `Requires=astromeshd`
 #    is what starts the daemon (an [Install] WantedBy in a drop-in is ignored by
 #    systemctl enable), so no service drop-in is needed.
@@ -187,7 +178,7 @@ install -m 0644 "${SRC}/phase1/astromesh-os.target" /usr/lib/systemd/system/astr
 systemctl set-default astromesh-os.target
 
 
-# 9. Immutability (Fase 2a): /var is a baked writable partition (mkosi.repart with
+# 8. Immutability (Fase 2a): /var is a baked writable partition (mkosi.repart with
 #    MountPoint=/var); tmpfiles recreates the runtime dirs on the fresh /var (which
 #    shadows the dirs baked into the read-only root).
 install -m 0644 "${SRC}/phase2/tmpfiles/astromesh-var.conf" /usr/lib/tmpfiles.d/astromesh-var.conf

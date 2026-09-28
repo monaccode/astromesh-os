@@ -17,7 +17,7 @@
 </div>
 
 Minimal, immutable, API-only Linux distribution (appliance) whose sole purpose is
-running Astromesh AI agents (`astromeshd`). Versioned **`v0.11.0`** (semver, like the
+running Astromesh AI agents (`astromeshd`). Versioned **`v0.12.0`** (semver, like the
 rest of the ecosystem), mature through **Phase 4 + post-4**. See the
 [documentation](https://monaccode.github.io/astromesh/os/introduction/) and the design
 docs in `docs/superpowers/specs/`.
@@ -36,20 +36,16 @@ is implemented through **Fase 4 + post-4**, all merged to `main`:
 | **4** | Agent-native + fleet: machine-config, mesh mTLS/IPsec, OTel export, eBPF causal egress | `phase4-{machineconfig,mesh,otel,otel-metrics,ebpf-rust,ebpf-control,agent-egress}` |
 | **post-4** | §12.3 cgroup memory governance, §12.7 CRIU checkpoint/restore, §12.2a sched_ext¹ | `phase4-{memory,criu,schedext}` |
 
-Runtime pinned to **astromesh `v0.55.0`** (`runtime.pin`). What that carries for an
-API-only appliance is mostly cost per run: an agent called as a tool now returns its
-`answer` instead of its whole run — its `steps` and `trace` used to be stringified into
-the calling model's history, about 13,000 extra input tokens per call and again on every
-later turn (v0.55.0); ReAct groups one response's tool calls into a single assistant
-message (v0.48.0); the three Kimi models that had no price row have one, so an agent
-pointed at `kimi-k3` no longer runs free in every ledger downstream (v0.50.0); and
-`usage.by_model[].tokens_cached` reports the input the provider served from its cache
-(v0.54.0). On behaviour: the hard confirmation gate — an action declared under `confirm:`
-does not run until the person types an exact word, matched against their raw text and
-never interpreted by the model (v0.42.0) — `spec.prefetch` read-only lookups before the
-LLM (v0.51.0), seven new declarative integrations, conversational memory that was dead
-code until v0.44.0, and a leak closed: an integration handler used to receive the run's
-`connections` and `secrets` and now gets only the caller's public context (v0.52.1).
+Runtime pinned to **astromesh `v0.60.0`** through the tag **`node-v0.1.6`** (`runtime.pin`),
+the first ref where the core and `astromesh-node` versions both match their code. For an
+appliance this is mostly about the service behaving like a service: `astromeshd` pings the
+systemd watchdog, so the `WatchdogSec=0` drop-in this image carried since Phase 0 is gone
+and a hung daemon gets restarted; `systemctl reload astromeshd` reloads agents and RAG from
+disk without a restart; and a sub-agent missing `agent:` no longer takes the whole boot down.
+It also brings the tenant `api` and `mcp` tools with `mode: propose` (v0.57–v0.59) and
+sandboxed Jinja templates (v0.59.1), on top of everything v0.55.0 carried: an agent called as
+a tool returns only its `answer` (about 13,000 fewer input tokens per call), the hard
+confirmation gate, `spec.prefetch`, and `usage.by_model[].tokens_cached`.
 
 Two things to expect at boot, both deliberate and both recorded in `runtime.pin`:
 `acuse-programa` stays in `draft` because it needs the `glyph` extra this image does not
