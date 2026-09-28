@@ -204,4 +204,40 @@
 #     la cadena compilada `__chain__sales-qualifier`—. El código nuevo no sólo
 #     importa: corre.
 # El boot gate de este repo sigue siendo la red final. Tag resolvable on origin.
-ASTROMESH_REF=v0.55.0
+# node-v0.1.6 (core v0.60.0): se pinea un tag de node y no v0.60.0 a propósito. El árbol
+# de v0.60.0 ya trae la recarga de agentes, pero su astromesh-node todavía dice 0.1.4 —
+# la imagen tendría un astromesh-node_0.1.4 con código de 0.1.5—; node-v0.1.6 es el primer
+# ref donde core (0.60.0) y node (0.1.6) dicen lo que llevan. Lo que trae para esta imagen:
+#   - el watchdog de systemd, por fin (node 0.1.4). La unidad declara WatchdogSec=30 y
+#     astromeshd nunca mandaba WATCHDOG=1: este repo lo esquivaba con el drop-in
+#     `10-no-watchdog.conf` (WatchdogSec=0) desde Fase 0. Ahora el daemon hace ping a la
+#     mitad de WATCHDOG_USEC desde el event loop, así que el drop-in se va: un loop colgado
+#     deja de hacer ping y systemd lo reinicia, que es para lo que está el watchdog;
+#   - `systemctl reload astromeshd` recarga agentes y RAG del disco sin reiniciar (core
+#     0.60.0 + node 0.1.5), entre RELOADING=1 y READY=1; un error se loguea y el daemon sigue;
+#   - un sub-agente sin `agent:` ya no tira abajo el arranque entero, sólo ese agente;
+#   - tools `api` y `mcp` del tenant, `mode: propose` y la guarda de host público (0.57–0.59),
+#     templates de Jinja en sandbox (0.59.1), y `validate`/`config validate` que salen con 1
+#     ante un error (node 0.1.6).
+#
+# Verificado antes de pinear, con los cinco chequeos de siempre:
+# (1) dependencias de runtime `[project]`: la única diferencia con v0.55.0 es la cota
+#     `pydantic<3` (y el extra opcional `mcp>=1.28.1,<2`, que este SO no instala). node pide
+#     `astromesh>=0.60.0` (lo resuelve el checkout) y `astromesh-cli>=0.3.1`, publicada en PyPI;
+# (2) api/main.py no cambia. Los imports nuevos a nivel de módulo en runtime/engine.py son
+#     `astromesh.integrations.{api,mcp,propuestas}`: api y propuestas cargan stdlib y
+#     pydantic; mcp agrega httpx y `anyio`, que llega como dependencia de httpx. El SDK `mcp`
+#     se importa adentro de la llamada, no al cargar el módulo;
+# (3) tests/test_slim_install.py pasa 7/7 en el árbol de node-v0.1.6;
+# (4) el `pip install "../[observability]" ".[systemd]"` de build-deb.sh en un contenedor
+#     debian:trixie amd64 (Python 3.13.5): código 0, 53 paquetes; numpy, faiss, aiosqlite,
+#     asyncpg, chromadb, astromesh_glyph y mcp AUSENTES; anyio y sdnotify presentes;
+# (5) en ese venv, astromeshd (camino systemd, no --foreground) contra el config empaquetado
+#     en /etc/astromesh: /v1/health 200 con 0.60.0, 10 agentes (9 deployed +
+#     `acuse-programa` en draft, el de siempre por el extra glyph). Además, la recarga real:
+#     se sacó un agente del disco, `kill -HUP` al daemon, el log dijo
+#     `Reload: removed=['acuse-programa']`, /v1/agents pasó a 9 y el proceso siguió vivo.
+# El boot gate de este repo sigue siendo la red final — y ahora además prueba el watchdog:
+# sin drop-in, un daemon que no hiciera ping moriría a los 30 s del arranque. Tag resolvable
+# on origin.
+ASTROMESH_REF=node-v0.1.6
