@@ -23,7 +23,7 @@ fail=0
 # TIMEOUT is reported distinctly because a systemd cgroup-BPF drop manifests as a connect timeout
 # (socket.timeout has errno None), which is the block signature on kernels that drop silently.
 probe() {
-    /usr/bin/python3 - "$1" "$2" <<'PY'
+    /opt/astromesh/venv/bin/python3 - "$1" "$2" <<'PY'
 import socket, sys, errno
 host, port = sys.argv[1], int(sys.argv[2])
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -16,8 +16,8 @@ if [ -z "${DEB}" ]; then
     exit 1
 fi
 echo "[postinst] Installing ${DEB}"
-# The minimal image ships dpkg but not apt; the .deb's deps (python3, python3-venv)
-# are already installed via mkosi Packages=, so dpkg -i resolves cleanly.
+# The minimal image ships dpkg but not apt; the .deb declares no Depends (it carries
+# its own CPython since node 0.1.8), so dpkg -i resolves cleanly.
 # Neutralize systemctl during the .deb maintainer scripts: there is no running
 # systemd in the build chroot, so `systemctl daemon-reload` would hit the bus and
 # fail. dpkg runs maintainer scripts with PATH=/usr/sbin:/usr/bin:/sbin:/bin, so we
@@ -37,6 +37,11 @@ bad_shebang=$(grep -l '^#!.*python' /opt/astromesh/venv/bin/* 2>/dev/null \
     | xargs -r head -qn1 | grep -v '^#!/opt/astromesh/venv/bin/python' || true)
 if [ -n "${bad_shebang}" ]; then
     echo "[postinst] FAIL: venv scripts point elsewhere: ${bad_shebang}"; exit 1
+fi
+# The system python3 is gone on purpose (v0.13.1): it cost space under the 500 MB budget and
+# nothing used it once the runtime brought its own. A package that drags it back fails here.
+if [ -e /usr/bin/python3 ]; then
+    echo "[postinst] FAIL: /usr/bin/python3 is back in the image; find the package that pulled it"; exit 1
 fi
 
 # 1c. Trim the venv to help fit the size budget (spec §4.2): bytecode caches and

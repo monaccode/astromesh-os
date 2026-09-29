@@ -26,7 +26,7 @@ if [ "${nnp}" = "1" ]; then log "NO-NEW-PRIVS OK"; else log "FAIL: NoNewPrivs no
 #    (allowed set is AF_INET/AF_INET6/AF_UNIX). Surfaces as EAFNOSUPPORT ("Address family not
 #    supported"). `|| rc=$?` keeps the expected failure from tripping `set -e`.
 rc=0
-err=$(/usr/bin/python3 -c 'import socket; socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)' 2>&1) || rc=$?
+err=$(/opt/astromesh/venv/bin/python3 -c 'import socket; socket.socket(socket.AF_NETLINK, socket.SOCK_RAW, 0)' 2>&1) || rc=$?
 if [ "${rc}" -eq 0 ]; then
     log "FAIL: AF_NETLINK socket SUCCEEDED under the sandbox (RestrictAddressFamilies not enforcing)"
     fail=1
