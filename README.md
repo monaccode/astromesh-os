@@ -17,7 +17,7 @@
 </div>
 
 Minimal, immutable, API-only Linux distribution (appliance) whose sole purpose is
-running Astromesh AI agents (`astromeshd`). Versioned **`v0.13.2`** (semver, like the
+running Astromesh AI agents (`astromeshd`). Versioned **`v0.13.3`** (semver, like the
 rest of the ecosystem), mature through **Phase 4 + post-4**. See the
 [documentation](https://monaccode.github.io/astromesh/os/introduction/) and the design
 docs in `docs/superpowers/specs/`.
@@ -36,7 +36,7 @@ is implemented through **Fase 4 + post-4**, all merged to `main`:
 | **4** | Agent-native + fleet: machine-config, mesh mTLS/IPsec, OTel export, eBPF causal egress | `phase4-{machineconfig,mesh,otel,otel-metrics,ebpf-rust,ebpf-control,agent-egress}` |
 | **post-4** | §12.3 cgroup memory governance, §12.7 CRIU checkpoint/restore, §12.2a sched_ext¹ | `phase4-{memory,criu,schedext}` |
 
-Runtime pinned to **astromesh `v0.64.0`** (`runtime.pin`), with `astromesh-node` 0.1.10.
+Runtime pinned to **astromesh `v0.66.0`** (`runtime.pin`), with `astromesh-node` 0.1.10.
 The node package now carries its own CPython 3.12 in `/opt/astromesh/python` and its
 virtualenv in `/opt/astromesh/venv`, so the image no longer rewrites shebangs or installs
 `python3-venv`: the build only checks that every venv script points at the venv, and the

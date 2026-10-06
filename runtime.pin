@@ -278,4 +278,12 @@
 #     y `prompts.context` deja lo que cambia por query al final para un prefijo cacheable.
 # Verificado antes de pinear: api.main sigue importando sin extras (tests/test_slim_install.py
 # verde en v0.64.0). El boot gate de este repo es la red final. Tag resolvable on origin.
-ASTROMESH_REF=v0.64.0
+# v0.66.0 (node 0.1.10): sube del v0.64.0 sin cambios de empaquetado para esta imagen.
+#   - 0.65.0 plan_and_execute, pipeline y parallel_fan_out pasan a ser conversacionales y
+#     corren el mismo ciclo de tools que react; supervisor se reescribe sobre tools nativas
+#     y un `orchestration.pattern` desconocido es AgentConfigError;
+#   - 0.66.0 el resultado de una tool entra al modelo como JSON y con tope de tokens
+#     (`max_result_tokens`, default 8000), recortado respetando la estructura.
+# Verificado antes de pinear: api.main sigue importando sin extras (tests/test_slim_install.py
+# verde en v0.66.0, 7 passed). El boot gate de este repo es la red final. Tag resolvable on origin.
+ASTROMESH_REF=v0.66.0
