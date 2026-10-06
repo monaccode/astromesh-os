@@ -272,4 +272,10 @@
 #     `Reload: removed=['acuse-programa']`, /v1/agents pasó a 9 y el proceso siguió vivo.
 # El boot gate de este repo es la red final, y ahora además ejerce el perfil AppArmor con el
 # intérprete nuevo y el watchdog (mismo PID pasados 45 s). Tag resolvable on origin.
-ASTROMESH_REF=v0.61.0
+# v0.64.0 (node 0.1.10): sube del v0.61.0 sin cambios de empaquetado para esta imagen.
+#   - 0.62.0 integraciones de lectura de Google, 0.63.0 vencimientos de ARCA;
+#   - 0.64.0 el historial conversacional entra como mensajes con presupuesto real de tokens,
+#     y `prompts.context` deja lo que cambia por query al final para un prefijo cacheable.
+# Verificado antes de pinear: api.main sigue importando sin extras (tests/test_slim_install.py
+# verde en v0.64.0). El boot gate de este repo es la red final. Tag resolvable on origin.
+ASTROMESH_REF=v0.64.0
