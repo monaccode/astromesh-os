@@ -286,4 +286,10 @@
 #     (`max_result_tokens`, default 8000), recortado respetando la estructura.
 # Verificado antes de pinear: api.main sigue importando sin extras (tests/test_slim_install.py
 # verde en v0.66.0, 7 passed). El boot gate de este repo es la red final. Tag resolvable on origin.
-ASTROMESH_REF=v0.66.0
+# v0.67.0 (node 0.1.10): sube del v0.66.0 sin cambios de empaquetado para esta imagen.
+#   - 0.67.0 evals de agentes: `kind: Eval` y el runner `astromesh-eval` (nuevo
+#     [project.scripts] del core). Es herramienta del autor y de CI: el daemon no lo carga
+#     y `api.main` no importa `astromesh.evals`. Las corridas no cambian.
+# Verificado antes de pinear: api.main sigue importando sin extras (tests/test_slim_install.py
+# verde en v0.67.0). El boot gate de este repo es la red final. Tag resolvable on origin.
+ASTROMESH_REF=v0.67.0
