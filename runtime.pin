@@ -292,4 +292,10 @@
 #     y `api.main` no importa `astromesh.evals`. Las corridas no cambian.
 # Verificado antes de pinear: api.main sigue importando sin extras (tests/test_slim_install.py
 # verde en v0.67.0). El boot gate de este repo es la red final. Tag resolvable on origin.
-ASTROMESH_REF=v0.67.0
+# v0.68.0 (node 0.1.10): sube del v0.67.0 sin cambios de empaquetado para esta imagen.
+#   - 0.68.0 knowledge bundles OKF: `spec.knowledge.bundle` + tools kb_index/kb_read/kb_find
+#     (`astromesh/knowledge/`, sólo stdlib y pyyaml, importado de forma perezosa por el
+#     engine). Sin dependencias nuevas.
+# Verificado antes de pinear: api.main sigue importando sin extras (tests/test_slim_install.py
+# verde en v0.68.0). El boot gate de este repo es la red final. Tag resolvable on origin.
+ASTROMESH_REF=v0.68.0
