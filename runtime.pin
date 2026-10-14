@@ -302,4 +302,8 @@
 #   dependencia base `astromesh-okf>=0.1,<0.2` (lector OKF extraído a librería; sólo trae
 #   pyyaml). Se resuelve desde PyPI con pip (no hay fuentes uv), verificado en un venv limpio:
 #   `pip install .` sin extras + `import astromesh.api.main` OK. El boot gate es la red final.
-ASTROMESH_REF=v0.69.0
+# v0.70.0 (node 0.1.10): sube del v0.69.0. Sin dependencias nuevas: spec.guardrails pasa
+#   a aplicarse (rechazo con `blocked: true`, stream/steps filtrados, cost_limit como
+#   presupuesto de la corrida). Un agente del appliance que declare guardrails cambia de
+#   comportamiento (ver CHANGELOG del core, 0.70.0). El boot gate es la red final.
+ASTROMESH_REF=v0.70.0
