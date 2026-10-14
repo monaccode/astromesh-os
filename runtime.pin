@@ -298,4 +298,8 @@
 #     engine). Sin dependencias nuevas.
 # Verificado antes de pinear: api.main sigue importando sin extras (tests/test_slim_install.py
 # verde en v0.68.0). El boot gate de este repo es la red final. Tag resolvable on origin.
-ASTROMESH_REF=v0.68.0
+# v0.69.0 (node 0.1.10): sube del v0.68.0. Cambio de empaquetado: el core suma la
+#   dependencia base `astromesh-okf>=0.1,<0.2` (lector OKF extraído a librería; sólo trae
+#   pyyaml). Se resuelve desde PyPI con pip (no hay fuentes uv), verificado en un venv limpio:
+#   `pip install .` sin extras + `import astromesh.api.main` OK. El boot gate es la red final.
+ASTROMESH_REF=v0.69.0
