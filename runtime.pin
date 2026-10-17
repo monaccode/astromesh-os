@@ -306,4 +306,9 @@
 #   a aplicarse (rechazo con `blocked: true`, stream/steps filtrados, cost_limit como
 #   presupuesto de la corrida). Un agente del appliance que declare guardrails cambia de
 #   comportamiento (ver CHANGELOG del core, 0.70.0). El boot gate es la red final.
-ASTROMESH_REF=v0.70.0
+# v0.71.0 (node 0.1.10): sube del v0.70.0. Sin dependencias base nuevas (los backends de
+#   memoria semántica/episódica se importan perezosos, vía extras). permissions,
+#   memory.semantic/episodic, swarm y orchestration.timeout_seconds pasan a aplicarse;
+#   un agente del appliance que los declare cambia de comportamiento (ver CHANGELOG del
+#   core, 0.71.0, bloque Breaking). El boot gate es la red final.
+ASTROMESH_REF=v0.71.0
