@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/astromesh-logo.png" alt="Astromesh" width="220" />
+<img src="docs/os-logo.png" alt="Astromesh Os" width="640" />
 
 # Astromesh OS
 
